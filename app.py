@@ -372,7 +372,7 @@ st.markdown(
         background: rgba(15, 87, 52, 0.86);
         border: 1px solid rgba(242, 207, 74, 0.30);
         border-radius: 8px;
-        min-height: 145px;
+        min-height: 190px;
         padding: 16px;
     }
 
@@ -380,6 +380,13 @@ st.markdown(
         color: var(--school-yellow);
         display: block;
         margin-bottom: 8px;
+    }
+
+    .mission-card span {
+        color: var(--school-text);
+        display: block;
+        font-size: 0.98rem;
+        line-height: 1.48;
     }
 
     .small-muted { color: var(--school-muted); font-size: 14px; }
@@ -2571,7 +2578,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Robot Instruksies",
                 "goal": "Leer dat kode net duidelike stappe is.",
-                "concepts": ["algoritme", "volgorde", "print"],
+                "training": [
+                    ("Algoritme", "'n Algoritme is 'n resep vir 'n rekenaar. Dit se presies wat eerste, tweede en derde moet gebeur."),
+                    ("Volgorde", "Python lees van bo na onder. As twee print-lyne onder mekaar staan, gebeur die boonste een eerste."),
+                    ("print", "print wys iets op die skerm. Dit is gewoonlik die eerste Python opdrag wat nuwe koders leer."),
+                ],
                 "code": "print('Hallo, Florida!')\nprint('Ek leer kode stap vir stap')",
                 "challenge": "Wat gebeur eerste: die eerste print of die tweede print?",
                 "answer": "eerste print",
@@ -2580,7 +2591,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Veranderlikes",
                 "goal": "Sit 'n waarde in 'n naam en gebruik dit weer.",
-                "concepts": ["variable", "waarde", "naam"],
+                "training": [
+                    ("Variable", "'n Variable is soos 'n gemerkte houer. Jy sit iets daarin en gebruik die naam later weer."),
+                    ("Waarde", "Die waarde is wat binne die houer is. In naam = 'Mia' is die waarde Mia."),
+                    ("Naam", "Kies duidelike variable-name soos score, naam of ouderdom sodat jou kode maklik lees."),
+                ],
                 "code": "naam = 'Mia'\nprint(naam)",
                 "challenge": "Wat sal die program wys?",
                 "answer": "Mia",
@@ -2589,8 +2604,12 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Herhaal Dit",
                 "goal": "Gebruik 'n loop om iets meer as een keer te doen.",
-                "concepts": ["loop", "repeat", "for"],
-                "code": "for ster in range(3):\n    print('⭐')",
+                "training": [
+                    ("Loop", "'n Loop laat die rekenaar dieselfde stap oor en oor doen sonder dat jy dit baie keer tik."),
+                    ("range", "range(3) beteken Python tel drie rondtes: 0, 1, 2. Dit voel vreemd, maar dit is normaal in kode."),
+                    ("Indent", "Die spasie voor print wys dit is binne die loop. Sonder die spasie verstaan Python dit anders."),
+                ],
+                "code": "for ster in range(3):\n    print('*')",
                 "challenge": "Hoeveel sterre word gewys?",
                 "answer": "3",
                 "options": ["1", "2", "3"],
@@ -2601,7 +2620,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Python Uitvoer",
                 "goal": "Voorspel presies wat Python op die skerm wys.",
-                "concepts": ["print", "strings", "numbers"],
+                "training": [
+                    ("print", "print wys die finale antwoord of boodskap op die skerm. Dit help jou sien wat jou program doen."),
+                    ("Strings", "Woorde in Python staan tussen aanhalingstekens, soos 'Hallo'. Getalle het nie aanhalingstekens nodig nie."),
+                    ("Numbers", "Python kan somme doen met getalle. score + 3 tel 3 by die waarde van score."),
+                ],
                 "code": "score = 7\nprint(score + 3)",
                 "challenge": "Wat is die output?",
                 "answer": "10",
@@ -2610,7 +2633,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Besluite",
                 "goal": "Gebruik if om die program te laat kies.",
-                "concepts": ["if", "condition", "colon"],
+                "training": [
+                    ("if", "if beteken: doen hierdie deel net as die toets waar is."),
+                    ("Condition", "ouderdom >= 10 is 'n toets. Dit vra of ouderdom groter of gelyk aan 10 is."),
+                    ("Colon", "Python gebruik 'n dubbelpunt na die if-lyn. Die ingeskuifde lyne daarna behoort aan die if."),
+                ],
                 "code": "ouderdom = 12\nif ouderdom >= 10:\n    print('Welkom by kodering')",
                 "challenge": "Watter woord moet na die if-lyn kom in Python?",
                 "answer": ":",
@@ -2619,7 +2646,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Eerste Java Idee",
                 "goal": "Sien hoe Java veranderlikes sterker benoem.",
-                "concepts": ["int", "String", "semicolon"],
+                "training": [
+                    ("int", "Java wil dikwels vooraf weet watter tipe data jy gebruik. int beteken 'n heelgetal."),
+                    ("String", "String beteken teks, soos 'Lebo'. Java skryf die tipe voor die variable se naam."),
+                    ("Semicolon", "Baie Java stellings eindig met 'n kommapunt. Dit is soos 'n punt aan die einde van 'n sin."),
+                ],
                 "code": "int score = 10;\nString naam = \"Lebo\";",
                 "challenge": "Watter Java tipe hou heelgetalle?",
                 "answer": "int",
@@ -2631,7 +2662,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Lyste en Indekse",
                 "goal": "Gebruik 'n lys en onthou Python begin tel by 0.",
-                "concepts": ["list", "index", "zero-based"],
+                "training": [
+                    ("List", "'n List hou baie waardes in een variable, soos punte vir 'n toetsreeks."),
+                    ("Index", "Die index kies een item uit die list. marks[0] kies die eerste item."),
+                    ("Zero-based", "Python begin by 0 tel. Eerste item is 0, tweede item is 1, derde item is 2."),
+                ],
                 "code": "marks = [70, 80, 90]\nprint(marks[0])",
                 "challenge": "Wat wys marks[0]?",
                 "answer": "70",
@@ -2640,7 +2675,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Funksies",
                 "goal": "Pak kode in 'n funksie sodat jy dit weer kan gebruik.",
-                "concepts": ["def", "parameter", "return"],
+                "training": [
+                    ("def", "def begin 'n funksie in Python. 'n Funksie is 'n klein masjien met 'n naam."),
+                    ("Parameter", "x is die invoer vir die funksie. Jy kan later ander getalle instuur."),
+                    ("return", "return stuur die antwoord terug. Sonder return wys die funksie nie noodwendig die waarde vir jou nie."),
+                ],
                 "code": "def verdubbel(x):\n    return x * 2\nprint(verdubbel(6))",
                 "challenge": "Wat is die output?",
                 "answer": "12",
@@ -2649,7 +2688,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Java Teenoor Python",
                 "goal": "Vergelyk Python se eenvoud met Java se struktuur.",
-                "concepts": ["semicolon", "types", "main"],
+                "training": [
+                    ("Semicolon", "Java gebruik dikwels ; aan die einde van 'n stelling. Python gebruik gewoonlik 'n nuwe lyn."),
+                    ("Types", "Java vra meer gereeld dat jy tipe name soos int en String skryf. Python raai dit self af."),
+                    ("main", "Groter Java programme begin gewoonlik in 'n main metode. Dit is soos die voordeur van die program."),
+                ],
                 "code": "System.out.println(\"Hallo\");",
                 "challenge": "Watter teken eindig baie Java stellings?",
                 "answer": ";",
@@ -2661,7 +2704,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Foute en Debugging",
                 "goal": "Lees foutboodskappe en hanteer probleme netjies.",
-                "concepts": ["try", "except", "debug"],
+                "training": [
+                    ("try", "try beteken: probeer hierdie kode, maar wees gereed as iets breek."),
+                    ("except", "except vang 'n bekende fout en gee jou 'n kans om vriendelik te reageer."),
+                    ("Debug", "Debugging is speurwerk. Jy lees die fout, toets klein dele, en maak een probleem op 'n slag reg."),
+                ],
                 "code": "try:\n    antwoord = 10 / 0\nexcept ZeroDivisionError:\n    print('Kan nie deur nul deel nie')",
                 "challenge": "Watter Python woord vang die fout?",
                 "answer": "except",
@@ -2670,7 +2717,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Objekte",
                 "goal": "Verstaan klasse as bloudrukke vir objekte.",
-                "concepts": ["class", "object", "method"],
+                "training": [
+                    ("class", "'n Class is 'n bloudruk. Dit beskryf hoe iets gebou moet word."),
+                    ("object", "'n Object is een regte ding wat uit die class gemaak is, soos een spesifieke leerder."),
+                    ("method", "'n Method is 'n funksie wat binne 'n class bly en met daardie object werk."),
+                ],
                 "code": "class Leerder:\n    def __init__(self, naam):\n        self.naam = naam",
                 "challenge": "'n Class is 'n bloudruk vir 'n ...",
                 "answer": "object",
@@ -2679,7 +2730,11 @@ def coding_modules_for_grade(grade):
             {
                 "title": "Java Main",
                 "goal": "Herken waar Java-programme gewoonlik begin.",
-                "concepts": ["main", "method", "public static"],
+                "training": [
+                    ("main", "main is die beginpunt wat Java gewoonlik soek wanneer 'n program hardloop."),
+                    ("method", "'n Method is Java se naam vir 'n funksie wat in 'n class woon."),
+                    ("public static", "Hierdie woorde is deel van Java se struktuur. Jy hoef dit eers te herken voor jy dit volledig verstaan."),
+                ],
                 "code": "public static void main(String[] args) {\n    System.out.println(\"Start\");\n}",
                 "challenge": "Wat is die gewone Java begin-metode?",
                 "answer": "main",
@@ -2690,7 +2745,11 @@ def coding_modules_for_grade(grade):
         {
             "title": "Algoritme Spoed",
             "goal": "Begin dink oor hoe kode skaal wanneer data groter word.",
-            "concepts": ["Big O", "linear", "nested loops"],
+            "training": [
+                ("Big O", "Big O beskryf hoe vinnig werk groei wanneer die hoeveelheid data groter word."),
+                ("Linear", "O(n) beteken die werk groei saam met die aantal items. Dubbel die data, omtrent dubbel die werk."),
+                ("Nested loops", "Lusse binne lusse kan baie vinnig duur raak. Dit is dikwels O(n^2)."),
+            ],
             "code": "for item in data:\n    print(item)",
             "challenge": "Een loop deur n items is gewoonlik ...",
             "answer": "O(n)",
@@ -2699,7 +2758,11 @@ def coding_modules_for_grade(grade):
         {
             "title": "Data Strukture",
             "goal": "Kies die regte houer vir die data wat jy nodig het.",
-            "concepts": ["dict", "keys", "values"],
+            "training": [
+                ("dict", "'n dictionary hou pare: 'n key en 'n value. Dit is vinnig wanneer jy iets op naam wil kry."),
+                ("Keys", "Die key is soos 'n etiket, byvoorbeeld 'naam'. Jy gebruik dit om die waarde te vind."),
+                ("Values", "Die value is die data agter die key, byvoorbeeld 'Ava' of 12."),
+            ],
             "code": "student = {'naam': 'Ava', 'graad': 12}\nprint(student['naam'])",
             "challenge": "Watter Python struktuur gebruik keys en values?",
             "answer": "dictionary",
@@ -2708,7 +2771,11 @@ def coding_modules_for_grade(grade):
         {
             "title": "Java Oorerwing",
             "goal": "Sien hoe groter programme klasse kan uitbrei.",
-            "concepts": ["extends", "inheritance", "subclass"],
+            "training": [
+                ("extends", "extends beteken 'hierdie class bou voort op daardie ander class'."),
+                ("Inheritance", "Oorerwing laat 'n class gedrag en data van 'n ouer class kry."),
+                ("Subclass", "'n Subclass is die kind-class. Dit kan goed erf en ook sy eie nuwe gedrag byvoeg."),
+            ],
             "code": "class Dog extends Animal {\n    void speak() { }\n}",
             "challenge": "Watter Java keyword wys oorerwing?",
             "answer": "extends",
@@ -2728,8 +2795,16 @@ def render_coding_module(module, index):
         unsafe_allow_html=True,
     )
     cols = st.columns(3)
-    for col, concept in zip(cols, module["concepts"]):
-        col.markdown(f'<div class="mission-card"><strong>{html.escape(concept)}</strong><span>Belangrike konsep vir hierdie module.</span></div>', unsafe_allow_html=True)
+    for col, (heading, explanation) in zip(cols, module["training"]):
+        col.markdown(
+            f"""
+            <div class="mission-card">
+                <strong>{html.escape(heading)}</strong>
+                <span>{html.escape(explanation)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     st.markdown(f'<div class="code-card">{html.escape(module["code"])}</div>', unsafe_allow_html=True)
 
 
