@@ -1,0 +1,13 @@
+.venv/
+venv/
+Backup/
+__pycache__/
+*.py[cod]
+
+db.json
+*.db
+*.sqlite
+*.sqlite3
+
+*.log
+.streamlit/secrets.toml
