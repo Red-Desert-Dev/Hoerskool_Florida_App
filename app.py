@@ -44,18 +44,18 @@ READING_PREVIEW_SECONDS_BY_LEVEL = {
 }
 
 AVATAR_OPTIONS = {
-    "astronaut": {"label": "Astronaut", "face": "#ffd7a8", "hair": "#3b2b25", "accent": "#f2cf4a", "symbol": "★"},
-    "robot": {"label": "Robot", "face": "#b8c7d9", "hair": "#516070", "accent": "#007a3d", "symbol": "●"},
-    "ninja": {"label": "Ninja", "face": "#f0b98d", "hair": "#10131c", "accent": "#c7252e", "symbol": "◆"},
-    "wizard": {"label": "Wizard", "face": "#ffd1bd", "hair": "#6f4bd8", "accent": "#b76cff", "symbol": "✦"},
-    "scientist": {"label": "Scientist", "face": "#f4c7a1", "hair": "#e8edf5", "accent": "#007a3d", "symbol": "⚗"},
-    "gamer": {"label": "Gamer", "face": "#d8a47f", "hair": "#1c2638", "accent": "#f2cf4a", "symbol": "▶"},
-    "pilot": {"label": "Pilot", "face": "#c98f6a", "hair": "#2d211d", "accent": "#007a3d", "symbol": "▲"},
-    "artist": {"label": "Artist", "face": "#e9b384", "hair": "#ff8a3d", "accent": "#ff4b9b", "symbol": "✎"},
-    "coder": {"label": "Coder", "face": "#c48d67", "hair": "#16202f", "accent": "#f2cf4a", "symbol": "</>"},
-    "captain": {"label": "Captain", "face": "#f2c09d", "hair": "#263047", "accent": "#f2cf4a", "symbol": "⚡"},
-    "alien": {"label": "Alien", "face": "#9dffb0", "hair": "#2f6b4a", "accent": "#f2cf4a", "symbol": "◉"},
-    "explorer": {"label": "Explorer", "face": "#d49a73", "hair": "#7a4d2b", "accent": "#007a3d", "symbol": "⌖"},
+    "astronaut": {"label": "Astronaut", "face": "#ffd7a8", "hair": "#3b2b25", "accent": "#f2cf4a", "symbol": "👨‍🚀"},
+    "robot": {"label": "Robot", "face": "#b8c7d9", "hair": "#516070", "accent": "#007a3d", "symbol": "🤖"},
+    "ninja": {"label": "Ninja", "face": "#f0b98d", "hair": "#10131c", "accent": "#c7252e", "symbol": "🥷"},
+    "wizard": {"label": "Wizard", "face": "#ffd1bd", "hair": "#6f4bd8", "accent": "#b76cff", "symbol": "🧙‍♂️"},
+    "scientist": {"label": "Scientist", "face": "#f4c7a1", "hair": "#e8edf5", "accent": "#007a3d", "symbol": "👨‍🔬"},
+    "gamer": {"label": "Gamer", "face": "#d8a47f", "hair": "#1c2638", "accent": "#f2cf4a", "symbol": "🎮"},
+    "pilot": {"label": "Pilot", "face": "#c98f6a", "hair": "#2d211d", "accent": "#007a3d", "symbol": "👨‍✈️"},
+    "artist": {"label": "Artist", "face": "#e9b384", "hair": "#ff8a3d", "accent": "#ff4b9b", "symbol": "👨‍🎨"},
+    "coder": {"label": "Coder", "face": "#c48d67", "hair": "#16202f", "accent": "#f2cf4a", "symbol": "👨‍💻"},
+    "captain": {"label": "Captain", "face": "#f2c09d", "hair": "#263047", "accent": "#f2cf4a", "symbol": "🧑‍✈️"},
+    "alien": {"label": "Alien", "face": "#9dffb0", "hair": "#2f6b4a", "accent": "#f2cf4a", "symbol": "👽"},
+    "explorer": {"label": "Explorer", "face": "#d49a73", "hair": "#7a4d2b", "accent": "#007a3d", "symbol": "🧭"},
 }
 
 
@@ -937,7 +937,7 @@ def avatar_data_uri(avatar_key):
       <circle cx="59" cy="50" r="4" fill="#10131c"/>
       <path d="M37 66c7 6 15 6 22 0" fill="none" stroke="#10131c" stroke-width="4" stroke-linecap="round"/>
       <circle cx="72" cy="25" r="13" fill="#0e1117" opacity="0.85"/>
-      <text x="72" y="30" text-anchor="middle" font-size="15" font-family="Arial" font-weight="700" fill="{avatar['accent']}">{symbol}</text>
+      <text x="72" y="31" text-anchor="middle" font-size="18" font-family="Arial, sans-serif" font-weight="700" fill="{avatar['accent']}">{symbol}</text>
     </svg>
     """
     encoded = base64.b64encode(svg.encode("utf-8")).decode("ascii")
