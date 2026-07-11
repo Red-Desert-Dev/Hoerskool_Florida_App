@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import html
 import base64
 import json
 import os
@@ -89,6 +90,11 @@ def learner_intro_html():
         </div>
     </div>
     """
+
+
+def reading_pane_html(text):
+    safe_text = html.escape(str(text or "")).replace("\n", "<br>")
+    return f'<div class="reading-pane">{safe_text}</div>'
 
 
 st.set_page_config(page_title=f"{SCHOOL_NAME} Akademie", layout="wide", page_icon="HF")
@@ -314,6 +320,18 @@ st.markdown(
         margin: 0;
         color: var(--school-text);
         font-size: 1.55rem;
+    }
+
+    .reading-pane {
+        background: #176b65;
+        border-radius: 8px;
+        color: #43a3ff;
+        font-size: clamp(1.45rem, 2.6vw, 2rem);
+        font-weight: 500;
+        line-height: 1.55;
+        margin: 18px 0;
+        padding: 26px 28px;
+        box-shadow: inset 0 0 0 1px rgba(67, 163, 255, 0.08);
     }
 
     .small-muted { color: var(--school-muted); font-size: 14px; }
@@ -2513,7 +2531,7 @@ def module_practice(subject, topic):
     if needs_preview:
         preview = start_reading_preview_if_needed(user_id, subject, topic, question)
         preview_remaining = max(0, int(preview["deadline"] - time.time()))
-        st.info(question["passage"])
+        st.markdown(reading_pane_html(question["passage"]), unsafe_allow_html=True)
         st.markdown("### Leesfase")
         st.write("Lees die stuk noukeurig. Wanneer jy gereed is, begin die vrae en word die leesstuk weggesteek.")
         render_countdown_timer(preview["deadline"], f"preview_{question['id']}")
@@ -2546,7 +2564,7 @@ def module_practice(subject, topic):
                 st.rerun()
 
     if question.get("passage") and not should_hide_passage_after_preview(question):
-        st.info(question["passage"])
+        st.markdown(reading_pane_html(question["passage"]), unsafe_allow_html=True)
     elif question.get("passage"):
         st.info("Leesstuk is versteek. Beantwoord die vraag uit wat jy gelees het.")
     else:
