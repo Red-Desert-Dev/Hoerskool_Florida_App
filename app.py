@@ -334,6 +334,54 @@ st.markdown(
         box-shadow: inset 0 0 0 1px rgba(67, 163, 255, 0.08);
     }
 
+    .coding-hero {
+        background:
+            linear-gradient(135deg, rgba(242,207,74,0.18), rgba(67,163,255,0.16)),
+            linear-gradient(180deg, #0f5734 0%, #07381f 100%);
+        border: 1px solid rgba(242, 207, 74, 0.45);
+        border-radius: 10px;
+        margin-bottom: 18px;
+        padding: 24px;
+    }
+
+    .coding-hero h2 {
+        color: var(--school-yellow);
+        margin: 0 0 8px 0;
+    }
+
+    .coding-hero p {
+        color: var(--school-muted);
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    .code-card {
+        background: #071912;
+        border: 1px solid rgba(67, 163, 255, 0.32);
+        border-radius: 8px;
+        color: #d8fff0;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 1rem;
+        line-height: 1.55;
+        margin: 12px 0;
+        padding: 16px;
+        white-space: pre-wrap;
+    }
+
+    .mission-card {
+        background: rgba(15, 87, 52, 0.86);
+        border: 1px solid rgba(242, 207, 74, 0.30);
+        border-radius: 8px;
+        min-height: 145px;
+        padding: 16px;
+    }
+
+    .mission-card strong {
+        color: var(--school-yellow);
+        display: block;
+        margin-bottom: 8px;
+    }
+
     .small-muted { color: var(--school-muted); font-size: 14px; }
 
     .avatar-img {
@@ -980,6 +1028,10 @@ CATEGORIES = {
     "Afrikaans - Begripstoets": ("Afrikaans", "Lees"),
     "Engels - Comprehension": ("Engels", "Taal"),
     "Engels - Lees": ("Engels", "Lees"),
+}
+
+ADMIN_CATEGORIES = {
+    **CATEGORIES,
     "Kodering - Python & Java": ("Kodering", "Python & Java"),
 }
 
@@ -2513,6 +2565,258 @@ def tetris_page():
     render_leaderboard(f"Graad {grade} Tetris ranglys", tetris_leaderboard(grade=grade))
 
 
+def coding_modules_for_grade(grade):
+    if grade <= 5:
+        return [
+            {
+                "title": "Robot Instruksies",
+                "goal": "Leer dat kode net duidelike stappe is.",
+                "concepts": ["algoritme", "volgorde", "print"],
+                "code": "print('Hallo, Florida!')\nprint('Ek leer kode stap vir stap')",
+                "challenge": "Wat gebeur eerste: die eerste print of die tweede print?",
+                "answer": "eerste print",
+                "options": ["eerste print", "tweede print", "albei gelyk"],
+            },
+            {
+                "title": "Veranderlikes",
+                "goal": "Sit 'n waarde in 'n naam en gebruik dit weer.",
+                "concepts": ["variable", "waarde", "naam"],
+                "code": "naam = 'Mia'\nprint(naam)",
+                "challenge": "Wat sal die program wys?",
+                "answer": "Mia",
+                "options": ["naam", "Mia", "print"],
+            },
+            {
+                "title": "Herhaal Dit",
+                "goal": "Gebruik 'n loop om iets meer as een keer te doen.",
+                "concepts": ["loop", "repeat", "for"],
+                "code": "for ster in range(3):\n    print('⭐')",
+                "challenge": "Hoeveel sterre word gewys?",
+                "answer": "3",
+                "options": ["1", "2", "3"],
+            },
+        ]
+    if grade <= 7:
+        return [
+            {
+                "title": "Python Uitvoer",
+                "goal": "Voorspel presies wat Python op die skerm wys.",
+                "concepts": ["print", "strings", "numbers"],
+                "code": "score = 7\nprint(score + 3)",
+                "challenge": "Wat is die output?",
+                "answer": "10",
+                "options": ["7", "10", "score + 3"],
+            },
+            {
+                "title": "Besluite",
+                "goal": "Gebruik if om die program te laat kies.",
+                "concepts": ["if", "condition", "colon"],
+                "code": "ouderdom = 12\nif ouderdom >= 10:\n    print('Welkom by kodering')",
+                "challenge": "Watter woord moet na die if-lyn kom in Python?",
+                "answer": ":",
+                "options": [":", ";", "."],
+            },
+            {
+                "title": "Eerste Java Idee",
+                "goal": "Sien hoe Java veranderlikes sterker benoem.",
+                "concepts": ["int", "String", "semicolon"],
+                "code": "int score = 10;\nString naam = \"Lebo\";",
+                "challenge": "Watter Java tipe hou heelgetalle?",
+                "answer": "int",
+                "options": ["String", "int", "print"],
+            },
+        ]
+    if grade <= 9:
+        return [
+            {
+                "title": "Lyste en Indekse",
+                "goal": "Gebruik 'n lys en onthou Python begin tel by 0.",
+                "concepts": ["list", "index", "zero-based"],
+                "code": "marks = [70, 80, 90]\nprint(marks[0])",
+                "challenge": "Wat wys marks[0]?",
+                "answer": "70",
+                "options": ["0", "70", "80"],
+            },
+            {
+                "title": "Funksies",
+                "goal": "Pak kode in 'n funksie sodat jy dit weer kan gebruik.",
+                "concepts": ["def", "parameter", "return"],
+                "code": "def verdubbel(x):\n    return x * 2\nprint(verdubbel(6))",
+                "challenge": "Wat is die output?",
+                "answer": "12",
+                "options": ["6", "12", "x * 2"],
+            },
+            {
+                "title": "Java Teenoor Python",
+                "goal": "Vergelyk Python se eenvoud met Java se struktuur.",
+                "concepts": ["semicolon", "types", "main"],
+                "code": "System.out.println(\"Hallo\");",
+                "challenge": "Watter teken eindig baie Java stellings?",
+                "answer": ";",
+                "options": [":", ";", "#"],
+            },
+        ]
+    if grade <= 11:
+        return [
+            {
+                "title": "Foute en Debugging",
+                "goal": "Lees foutboodskappe en hanteer probleme netjies.",
+                "concepts": ["try", "except", "debug"],
+                "code": "try:\n    antwoord = 10 / 0\nexcept ZeroDivisionError:\n    print('Kan nie deur nul deel nie')",
+                "challenge": "Watter Python woord vang die fout?",
+                "answer": "except",
+                "options": ["return", "except", "class"],
+            },
+            {
+                "title": "Objekte",
+                "goal": "Verstaan klasse as bloudrukke vir objekte.",
+                "concepts": ["class", "object", "method"],
+                "code": "class Leerder:\n    def __init__(self, naam):\n        self.naam = naam",
+                "challenge": "'n Class is 'n bloudruk vir 'n ...",
+                "answer": "object",
+                "options": ["object", "comment", "loop"],
+            },
+            {
+                "title": "Java Main",
+                "goal": "Herken waar Java-programme gewoonlik begin.",
+                "concepts": ["main", "method", "public static"],
+                "code": "public static void main(String[] args) {\n    System.out.println(\"Start\");\n}",
+                "challenge": "Wat is die gewone Java begin-metode?",
+                "answer": "main",
+                "options": ["print", "main", "start"],
+            },
+        ]
+    return [
+        {
+            "title": "Algoritme Spoed",
+            "goal": "Begin dink oor hoe kode skaal wanneer data groter word.",
+            "concepts": ["Big O", "linear", "nested loops"],
+            "code": "for item in data:\n    print(item)",
+            "challenge": "Een loop deur n items is gewoonlik ...",
+            "answer": "O(n)",
+            "options": ["O(1)", "O(n)", "O(n^2)"],
+        },
+        {
+            "title": "Data Strukture",
+            "goal": "Kies die regte houer vir die data wat jy nodig het.",
+            "concepts": ["dict", "keys", "values"],
+            "code": "student = {'naam': 'Ava', 'graad': 12}\nprint(student['naam'])",
+            "challenge": "Watter Python struktuur gebruik keys en values?",
+            "answer": "dictionary",
+            "options": ["dictionary", "loop", "string"],
+        },
+        {
+            "title": "Java Oorerwing",
+            "goal": "Sien hoe groter programme klasse kan uitbrei.",
+            "concepts": ["extends", "inheritance", "subclass"],
+            "code": "class Dog extends Animal {\n    void speak() { }\n}",
+            "challenge": "Watter Java keyword wys oorerwing?",
+            "answer": "extends",
+            "options": ["extends", "return", "import"],
+        },
+    ]
+
+
+def render_coding_module(module, index):
+    st.markdown(
+        f"""
+        <div class="coding-hero">
+            <h2>Module {index}: {html.escape(module["title"])}</h2>
+            <p>{html.escape(module["goal"])}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    cols = st.columns(3)
+    for col, concept in zip(cols, module["concepts"]):
+        col.markdown(f'<div class="mission-card"><strong>{html.escape(concept)}</strong><span>Belangrike konsep vir hierdie module.</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="code-card">{html.escape(module["code"])}</div>', unsafe_allow_html=True)
+
+
+def coding_quiz_questions(grade, level, limit=3):
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM questions
+            WHERE subject = 'Kodering' AND topic = 'Python & Java' AND grade = ? AND level = ? AND active = 1
+            ORDER BY id
+            LIMIT ?
+            """,
+            (int(grade), int(level), int(limit)),
+        ).fetchall()
+    return [question_row_to_dict(row) for row in rows]
+
+
+def coding_page():
+    user = st.session_state.user
+    user_id = user["id"]
+    grade = int(user.get("grade", 6))
+    progress = get_progress(user_id, "Kodering", "Python & Java")
+    modules = coding_modules_for_grade(grade)
+
+    st.markdown(
+        """
+        <div class="coding-hero">
+            <h2>Kodering Akademie</h2>
+            <p>Leer Python stap vir stap, met klein Java idees wanneer jy gereed is. Kies 'n module, speel met die voorbeeld, en doen dan 'n kort quiz.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Graad", grade)
+    col2.metric("Kodering telling", progress["score"])
+    col3.metric("Vlak", progress["level"])
+
+    module_labels = [f"Module {idx + 1}: {module['title']}" for idx, module in enumerate(modules)]
+    selected_label = st.selectbox("Kies jou kodering module", module_labels, key="coding_module_choice")
+    module_index = module_labels.index(selected_label)
+    module = modules[module_index]
+    level_floor = (module_index * 3) + 1
+    lesson_level = min(10, max(level_floor, int(progress["level"])))
+
+    render_coding_module(module, module_index + 1)
+
+    st.markdown("### Speel-speel voorspelling")
+    prediction = st.radio(module["challenge"], module["options"], key=f"coding_prediction_{grade}_{module_index}")
+    if st.button("Toets my voorspelling", use_container_width=True):
+        if normalize_answer(prediction) == normalize_answer(module["answer"]):
+            st.success("Mooi. Jy het die kode reg gelees.")
+        else:
+            st.warning(f"Naby. Die beste antwoord is: {module['answer']}")
+
+    st.markdown("### Kort quiz na die module")
+    quiz_questions = coding_quiz_questions(grade, lesson_level)
+    if not quiz_questions:
+        st.info("Daar is nog nie kodering vrae vir hierdie module nie.")
+        return
+
+    with st.form(key=f"coding_quiz_{grade}_{lesson_level}_{module_index}"):
+        answers = {}
+        for idx, question in enumerate(quiz_questions, start=1):
+            st.markdown(f"**Vraag {idx}:** {question['prompt']}")
+            answers[question["id"]] = st.text_input("Jou antwoord", key=f"coding_answer_{question['id']}")
+        submitted = st.form_submit_button("Merk my quiz", use_container_width=True)
+
+    if submitted:
+        correct_count = 0
+        total_points = 0
+        for question in quiz_questions:
+            answer = answers.get(question["id"], "")
+            correct, points, new_level = record_attempt(user_id, question, answer, elapsed=0, timed_out=False)
+            correct_count += int(correct)
+            total_points += points
+        if correct_count == len(quiz_questions):
+            st.success(f"Fantasties. {correct_count}/{len(quiz_questions)} korrek en {total_points} punte.")
+        elif correct_count:
+            st.info(f"Goeie begin. {correct_count}/{len(quiz_questions)} korrek. Probeer weer vir volle punte.")
+        else:
+            st.warning("Nog nie daar nie. Lees die module weer en probeer weer.")
+        time.sleep(1.2)
+        st.rerun()
+
+
 def front_page():
     user_id = st.session_state.user["id"]
     ctx = load_student_context(user_id)
@@ -2534,7 +2838,7 @@ def front_page():
         """
         <div class="practice-guide">
             <h3>Hoe om te begin</h3>
-            <p>Kies 'n kategorie links in die kieslys. Doen kort oefensessies, lees die wenke wanneer jy vasbrand, en kom terug na hierdie blad om jou vordering en ranglyste te sien.</p>
+            <p>Kies 'n kategorie links in die kieslys, of spring in by Kodering Akademie vir Python en Java. Doen kort oefensessies, lees die wenke wanneer jy vasbrand, en kom terug na hierdie blad om jou vordering en ranglyste te sien.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2543,7 +2847,7 @@ def front_page():
     if not progress_df.empty:
         total_attempts = int(progress_df["attempt_count"].sum()) if "attempt_count" in progress_df else 0
         if total_attempts == 0:
-            subject_links = "".join(f'<span class="subject-pill">{label}</span>' for label in CATEGORIES.keys())
+            subject_links = '<span class="subject-pill">Kodering Akademie</span>' + "".join(f'<span class="subject-pill">{label}</span>' for label in CATEGORIES.keys())
             st.markdown(
                 f"""
                 <div class="empty-state">
@@ -2944,8 +3248,8 @@ def admin_questions_page():
     st.caption("Kies 'n kategorie en vlak, wysig die vrae in die tabel, en klik Stoor. Nuwe rye kan onderaan bygevoeg word.")
 
     grade = st.selectbox("Graad", GRADE_OPTIONS, index=GRADE_OPTIONS.index(6), key="admin_question_grade")
-    category = st.selectbox("Kategorie", list(CATEGORIES.keys()), key="admin_question_category")
-    subject, topic = CATEGORIES[category]
+    category = st.selectbox("Kategorie", list(ADMIN_CATEGORIES.keys()), key="admin_question_category")
+    subject, topic = ADMIN_CATEGORIES[category]
 
     level = st.number_input(
         "Vlak",
@@ -3151,8 +3455,8 @@ def main():
         )
         category = st.selectbox(
             "Kies Kategorie",
-            ["Voorblad (Stats & Leaderboard)", "Mini Game - Tetris", *CATEGORIES.keys()],
-            key="category_selection",
+            ["Voorblad (Stats & Leaderboard)", "Kodering Akademie", "Mini Game - Tetris", *CATEGORIES.keys()],
+            key="main_navigation",
         )
         st.markdown("---")
         if st.button("Log Uit"):
@@ -3160,6 +3464,8 @@ def main():
 
     if category == "Voorblad (Stats & Leaderboard)":
         front_page()
+    elif category == "Kodering Akademie":
+        coding_page()
     elif category == "Mini Game - Tetris":
         tetris_page()
     else:
