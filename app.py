@@ -17,6 +17,7 @@ DB_FILE = "school_app.db"
 JSON_BACKUP_FILE = "db.json"
 SCHOOL_NAME = "Hoerskool Florida"
 SCHOOL_CREST_FILE = os.path.join("assets", "hoerskool_florida_wapen.png")
+APP_TAGLINE = "Bou vaardighede in wiskunde, tale en leesbegrip - een kort oefensessie op 'n slag."
 PBKDF2_ITERATIONS = 260_000
 DEFAULT_TEACHER_NAME = "Onderwyser"
 DEFAULT_TEACHER_PASSWORD = "admin123"
@@ -74,6 +75,20 @@ def school_brand_html(compact=False):
         f'<div><span>{SCHOOL_NAME}</span><strong>Akademie-Kampioen</strong></div>'
         "</div>"
     )
+
+
+def learner_intro_html():
+    return f"""
+    <div class="helper-panel">
+        <h3>Welkom by jou oefenruimte</h3>
+        <p>{APP_TAGLINE}</p>
+        <div class="feature-grid">
+            <div class="feature-card"><strong>1. Registreer</strong><span>Kies jou graad en avatar.</span></div>
+            <div class="feature-card"><strong>2. Oefen</strong><span>Werk deur vrae volgens jou vlak.</span></div>
+            <div class="feature-card"><strong>3. Groei</strong><span>Verdien punte, sien ranglyste en verbeter.</span></div>
+        </div>
+    </div>
+    """
 
 
 st.set_page_config(page_title=f"{SCHOOL_NAME} Akademie", layout="wide", page_icon="HF")
@@ -173,6 +188,90 @@ st.markdown(
         height: 44px;
         object-fit: contain;
         flex: 0 0 auto;
+    }
+
+    .helper-panel,
+    .empty-state,
+    .practice-guide {
+        background: rgba(8, 49, 29, 0.78);
+        border: 1px solid rgba(242, 207, 74, 0.32);
+        border-radius: 8px;
+        padding: 18px 20px;
+        margin: 12px 0 18px 0;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+    }
+
+    .helper-panel h3,
+    .empty-state h3,
+    .practice-guide h3 {
+        margin: 0 0 8px 0;
+        color: var(--school-yellow);
+    }
+
+    .helper-panel p,
+    .empty-state p,
+    .practice-guide p {
+        margin: 0;
+        color: var(--school-muted);
+        line-height: 1.5;
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .feature-card {
+        background: rgba(15, 87, 52, 0.78);
+        border: 1px solid rgba(242, 207, 74, 0.22);
+        border-radius: 8px;
+        padding: 12px;
+        min-height: 86px;
+    }
+
+    .feature-card strong,
+    .feature-card span {
+        display: block;
+    }
+
+    .feature-card strong {
+        color: var(--school-text);
+        margin-bottom: 5px;
+    }
+
+    .feature-card span {
+        color: var(--school-muted);
+        font-size: 0.92rem;
+        line-height: 1.35;
+    }
+
+    .subject-pill {
+        display: inline-block;
+        background: rgba(242, 207, 74, 0.16);
+        border: 1px solid rgba(242, 207, 74, 0.38);
+        border-radius: 999px;
+        color: var(--school-yellow);
+        font-weight: 800;
+        margin: 3px 5px 3px 0;
+        padding: 5px 10px;
+        font-size: 0.88rem;
+    }
+
+    @media (max-width: 760px) {
+        .feature-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .school-brand {
+            gap: 10px;
+        }
+
+        .school-crest {
+            width: 78px;
+            height: 78px;
+        }
     }
 
     .hoof-kaart {
@@ -1346,6 +1445,18 @@ def get_progress(user_id, subject, topic):
         ).fetchone()
 
 
+def correct_count_for_level(user_id, subject, topic, level):
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM attempts
+            WHERE user_id = ? AND subject = ? AND topic = ? AND level = ? AND correct = 1
+            """,
+            (user_id, subject, topic, int(level)),
+        ).fetchone()[0]
+
+
 def available_questions(subject, topic, grade, level):
     with get_conn() as conn:
         rows = conn.execute(
@@ -2019,12 +2130,14 @@ def login_flow():
         f'<div class="hoof-kaart">{school_brand_html()}</div>',
         unsafe_allow_html=True,
     )
-    tab1, tab2, tab3 = st.tabs(["Teken In", "Registreer", "Onderwyser"])
+    st.markdown(learner_intro_html(), unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["Leerder Teken In", "Nuwe Leerder", "Onderwyser"])
 
     with tab1:
-        login_user = st.text_input("Gebruikersnaam")
-        login_pass = st.text_input("Wagwoord", type="password")
-        if st.button("Teken In"):
+        st.caption("Gebruik die naam en wagwoord waarmee jy geregistreer het.")
+        login_user = st.text_input("Gebruikersnaam", placeholder="Byvoorbeeld: Mia van Wyk")
+        login_pass = st.text_input("Wagwoord", type="password", placeholder="Jou wagwoord")
+        if st.button("Teken In", type="primary", use_container_width=True):
             student = get_student_by_name(login_user)
             if student and verify_password(login_pass, get_credential("student", student["id"])):
                 st.session_state.user = {
@@ -2038,9 +2151,11 @@ def login_flow():
             st.error("Verkeerde besonderhede.")
 
     with tab2:
-        reg_name = st.text_input("Nuwe gebruikersnaam")
-        reg_pass = st.text_input("Nuwe wagwoord", type="password")
-        reg_grade = st.selectbox("Graad", GRADE_OPTIONS, index=GRADE_OPTIONS.index(6))
+        st.caption("Nuwe leerders kan self begin. Onderwysers kan later name, grade en wagwoorde regmaak.")
+        reg_name = st.text_input("Volle naam of gebruikersnaam", placeholder="Byvoorbeeld: Jan Botha")
+        reg_pass = st.text_input("Kies 'n wagwoord", type="password", help="Gebruik iets wat jy sal onthou, maar nie jou naam alleen nie.")
+        reg_pass_confirm = st.text_input("Tik wagwoord weer", type="password")
+        reg_grade = st.selectbox("Graad", GRADE_OPTIONS, index=GRADE_OPTIONS.index(6), help="Kies jou huidige skoolgraad.")
         avatar_labels = {data["label"]: key for key, data in AVATAR_OPTIONS.items()}
         reg_avatar_label = st.selectbox("Kies avatar", list(avatar_labels.keys()))
         reg_avatar = avatar_labels[reg_avatar_label]
@@ -2048,9 +2163,13 @@ def login_flow():
             f"{avatar_img_html(reg_avatar)} <strong>{reg_avatar_label}</strong>",
             unsafe_allow_html=True,
         )
-        if st.button("Registreer Nou"):
+        if st.button("Registreer Nou", type="primary", use_container_width=True):
             if not reg_name.strip() or not reg_pass:
                 st.error("Naam en wagwoord is nodig.")
+            elif reg_pass != reg_pass_confirm:
+                st.error("Die twee wagwoorde stem nie ooreen nie.")
+            elif len(reg_pass) < 4:
+                st.error("Gebruik asseblief 'n wagwoord van minstens 4 karakters.")
             elif get_student_by_name(reg_name):
                 st.error("Daardie naam bestaan reeds.")
             else:
@@ -2058,9 +2177,10 @@ def login_flow():
                 st.success("Geregistreer. Jy kan nou inteken.")
 
     with tab3:
+        st.caption("Onderwyser toegang is vir vraagbank, ranglyste en studentbestuur.")
         teacher_name = st.text_input("Onderwyser naam", value=DEFAULT_TEACHER_NAME)
         teacher_pass = st.text_input("Onderwyser wagwoord", type="password")
-        if st.button("Onderwyser Teken In"):
+        if st.button("Onderwyser Teken In", type="primary", use_container_width=True):
             teacher = get_teacher_by_name(teacher_name)
             if teacher and verify_password(teacher_pass, get_credential("teacher", teacher["id"])):
                 st.session_state.user = {
@@ -2102,10 +2222,10 @@ def render_tetris_component():
             <input id="scoreInput" name="tetris_score" value="0" />
           </form>
           <div style="display:grid;grid-template-columns:repeat(3,52px);gap:6px;margin-top:14px;justify-content:center;">
-            <button data-action="left">←</button><button data-action="rotate">↻</button><button data-action="right">→</button>
-            <button data-action="down" style="grid-column:1 / span 3;">↓</button>
+            <button data-action="left">&larr;</button><button data-action="rotate">&#8635;</button><button data-action="right">&rarr;</button>
+            <button data-action="down" style="grid-column:1 / span 3;">&darr;</button>
           </div>
-          <div style="font-size:12px;color:#e7dcae;margin-top:12px;line-height:1.35;">Keyboard: ← → move, ↑ rotate, ↓ soft drop. Mobile buttons work too.</div>
+          <div style="font-size:12px;color:#e7dcae;margin-top:12px;line-height:1.35;">Keyboard: &larr; &rarr; move, &uarr; rotate, &darr; soft drop. Mobile buttons work too.</div>
           <div id="status" style="font-size:13px;color:#f2cf4a;margin-top:10px;"></div>
         </div>
       </div>
@@ -2305,7 +2425,30 @@ def front_page():
     col2.metric("Beste vlak", best_level)
     col3.metric("Graad", student_grade)
 
+    st.markdown(
+        """
+        <div class="practice-guide">
+            <h3>Hoe om te begin</h3>
+            <p>Kies 'n kategorie links in die kieslys. Doen kort oefensessies, lees die wenke wanneer jy vasbrand, en kom terug na hierdie blad om jou vordering en ranglyste te sien.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if not progress_df.empty:
+        total_attempts = int(progress_df["attempt_count"].sum()) if "attempt_count" in progress_df else 0
+        if total_attempts == 0:
+            subject_links = "".join(f'<span class="subject-pill">{label}</span>' for label in CATEGORIES.keys())
+            st.markdown(
+                f"""
+                <div class="empty-state">
+                    <h3>Jou eerste oefening wag</h3>
+                    <p>Begin met enige een van hierdie afdelings in die linkerkantse kieslys:</p>
+                    <p>{subject_links}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
         st.markdown("### Jou vordering per onderwerp")
         st.dataframe(
             progress_df[["subject", "topic", "level", "score", "correct_count", "attempt_count", "best_streak"]],
@@ -2362,6 +2505,10 @@ def module_practice(subject, topic):
         unsafe_allow_html=True,
     )
     st.caption(f"Graad {student_grade}")
+    correct_this_level = correct_count_for_level(user_id, subject, topic, int(progress["level"]))
+    level_goal = min(correct_this_level, QUESTIONS_PER_LEVEL)
+    st.progress(level_goal / QUESTIONS_PER_LEVEL)
+    st.caption(f"{level_goal}/{QUESTIONS_PER_LEVEL} korrekte antwoorde nodig vir die volgende vlak.")
 
     if needs_preview:
         preview = start_reading_preview_if_needed(user_id, subject, topic, question)
@@ -2402,6 +2549,16 @@ def module_practice(subject, topic):
         st.info(question["passage"])
     elif question.get("passage"):
         st.info("Leesstuk is versteek. Beantwoord die vraag uit wat jy gelees het.")
+    else:
+        st.markdown(
+            """
+            <div class="practice-guide">
+                <h3>Vat jou tyd</h3>
+                <p>Lees die vraag mooi, tik net jou antwoord in, en druk Dien In. As jy verkeerd is, wys die app vir jou 'n wenk.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.markdown(f'<div class="question-box"><h3>{question["prompt"]}</h3></div>', unsafe_allow_html=True)
 
@@ -2510,6 +2667,20 @@ def admin_dashboard():
     st.subheader("Studente")
     students_df = rows_to_dataframe(students)
     if not students_df.empty:
+        total_students = len(students_df)
+        total_attempts = int(students_df["attempt_count"].sum())
+        avg_accuracy = (
+            100 * students_df["correct_count"].sum() / total_attempts
+            if total_attempts
+            else 0
+        )
+        active_students = int((students_df["attempt_count"] > 0).sum())
+        summary1, summary2, summary3, summary4 = st.columns(4)
+        summary1.metric("Leerders", total_students)
+        summary2.metric("Aktief", active_students)
+        summary3.metric("Pogings", total_attempts)
+        summary4.metric("Gem. akkuraatheid", f"{avg_accuracy:.1f}%")
+
         if "avatar" in students_df.columns:
             students_df["avatar"] = students_df["avatar"].apply(lambda value: avatar_img_html(value, "avatar-small"))
         students_df["accuracy"] = students_df.apply(
