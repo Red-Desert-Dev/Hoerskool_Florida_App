@@ -2775,19 +2775,55 @@ def render_coding_module(module, index):
     st.markdown(f'<div class="code-card">{html.escape(module["code"])}</div>', unsafe_allow_html=True)
 
 
-def coding_quiz_questions(grade, level, limit=3):
-    with get_conn() as conn:
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM questions
-            WHERE subject = 'Kodering' AND topic = 'Python & Java' AND grade = ? AND level = ? AND active = 1
-            ORDER BY id
-            LIMIT ?
-            """,
-            (int(grade), int(level), int(limit)),
-        ).fetchall()
-    return [question_row_to_dict(row) for row in rows]
+def coding_module_quiz(module, grade, module_index):
+    first_heading, first_explanation = module["training"][0]
+    second_heading, _ = module["training"][1]
+    return [
+        {
+            "id": f"coding_module_g{grade}_{module_index}_concept",
+            "prompt": f"Volgens hierdie module, wat beteken '{first_heading}'?",
+            "options": [
+                first_explanation,
+                f"Dit beteken dieselfde as '{second_heading}'.",
+                "Dit is net 'n moeilike woord wat ons later ignoreer.",
+            ],
+            "answer": first_explanation,
+            "points": 10 + int(grade),
+        },
+        {
+            "id": f"coding_module_g{grade}_{module_index}_mission",
+            "prompt": "Waaroor gaan die missieplan in hierdie module?",
+            "options": [
+                module["goal"],
+                "Om 'n lang Python toets te skryf.",
+                "Om die gewone skoolrooster te verander.",
+            ],
+            "answer": module["goal"],
+            "points": 10 + int(grade),
+        },
+        {
+            "id": f"coding_module_g{grade}_{module_index}_challenge",
+            "prompt": module["challenge"],
+            "options": module["options"],
+            "answer": module["answer"],
+            "points": 12 + int(grade),
+        },
+    ]
+
+
+def coding_quiz_question_for_attempt(quiz_item, grade, level):
+    return {
+        "id": quiz_item["id"],
+        "subject": "Kodering",
+        "topic": "Python & Java",
+        "grade": int(grade),
+        "level": int(level),
+        "prompt": quiz_item["prompt"],
+        "answer": quiz_item["answer"],
+        "accepted": [quiz_item["answer"]],
+        "points": int(quiz_item.get("points", 10)),
+        "time_limit": 0,
+    }
 
 
 def coding_page():
@@ -2829,16 +2865,16 @@ def coding_page():
             st.warning(f"Naby. Die beste antwoord is: {module['answer']}")
 
     st.markdown("### Kort quiz na die module")
-    quiz_questions = coding_quiz_questions(grade, lesson_level)
-    if not quiz_questions:
-        st.info("Daar is nog nie kodering vrae vir hierdie module nie.")
-        return
-
-    with st.form(key=f"coding_quiz_{grade}_{lesson_level}_{module_index}"):
+    quiz_questions = coding_module_quiz(module, grade, module_index)
+    with st.form(key=f"coding_quiz_{grade}_{module_index}"):
         answers = {}
         for idx, question in enumerate(quiz_questions, start=1):
             st.markdown(f"**Vraag {idx}:** {question['prompt']}")
-            answers[question["id"]] = st.text_input("Jou antwoord", key=f"coding_answer_{question['id']}")
+            answers[question["id"]] = st.radio(
+                "Kies jou antwoord",
+                question["options"],
+                key=f"coding_answer_{question['id']}",
+            )
         submitted = st.form_submit_button("Merk my quiz", use_container_width=True)
 
     if submitted:
@@ -2846,7 +2882,8 @@ def coding_page():
         total_points = 0
         for question in quiz_questions:
             answer = answers.get(question["id"], "")
-            correct, points, new_level = record_attempt(user_id, question, answer, elapsed=0, timed_out=False)
+            attempt_question = coding_quiz_question_for_attempt(question, grade, lesson_level)
+            correct, points, new_level = record_attempt(user_id, attempt_question, answer, elapsed=0, timed_out=False)
             correct_count += int(correct)
             total_points += points
         if correct_count == len(quiz_questions):
