@@ -2826,6 +2826,25 @@ def coding_quiz_question_for_attempt(quiz_item, grade, level):
     }
 
 
+def completed_coding_quiz_ids(user_id, quiz_questions):
+    question_ids = [question["id"] for question in quiz_questions]
+    if not question_ids:
+        return set()
+    placeholders = ",".join("?" for _ in question_ids)
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT question_id
+            FROM attempts
+            WHERE user_id = ?
+              AND subject = 'Kodering'
+              AND question_id IN ({placeholders})
+            """,
+            (user_id, *question_ids),
+        ).fetchall()
+    return {row["question_id"] for row in rows}
+
+
 def coding_page():
     user = st.session_state.user
     user_id = user["id"]
@@ -2866,6 +2885,11 @@ def coding_page():
 
     st.markdown("### Kort quiz na die module")
     quiz_questions = coding_module_quiz(module, grade, module_index)
+    completed_ids = completed_coding_quiz_ids(user_id, quiz_questions)
+    quiz_completed = len(completed_ids) == len(quiz_questions)
+    if quiz_completed:
+        st.success("Jy het hierdie module-quiz klaar voltooi. Jou punte is reeds gestoor.")
+
     with st.form(key=f"coding_quiz_{grade}_{module_index}"):
         answers = {}
         for idx, question in enumerate(quiz_questions, start=1):
@@ -2874,13 +2898,20 @@ def coding_page():
                 "Kies jou antwoord",
                 question["options"],
                 key=f"coding_answer_{question['id']}",
+                disabled=quiz_completed,
             )
-        submitted = st.form_submit_button("Merk my quiz", use_container_width=True)
+        submitted = st.form_submit_button("Merk my quiz", use_container_width=True, disabled=quiz_completed)
 
     if submitted:
+        completed_ids = completed_coding_quiz_ids(user_id, quiz_questions)
+        if len(completed_ids) == len(quiz_questions):
+            st.info("Hierdie module-quiz is reeds gemerk. Geen ekstra punte is bygevoeg nie.")
+            st.stop()
         correct_count = 0
         total_points = 0
         for question in quiz_questions:
+            if question["id"] in completed_ids:
+                continue
             answer = answers.get(question["id"], "")
             attempt_question = coding_quiz_question_for_attempt(question, grade, lesson_level)
             correct, points, new_level = record_attempt(user_id, attempt_question, answer, elapsed=0, timed_out=False)
