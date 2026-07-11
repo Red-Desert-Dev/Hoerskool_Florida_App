@@ -698,6 +698,84 @@ def build_reading_questions(prefix, subject, data):
     return build_questions(prefix, subject, "Lees", levels, grade=6, base_points=12, base_time=25)
 
 
+def coding_items_for_grade_level(grade, level):
+    a = level + 2
+    b = grade - 1
+    if grade <= 5:
+        return [
+            ("In coding, what do we call a step-by-step list of instructions?", "algorithm", ["algorithm", "an algorithm"]),
+            (f"Python command to show text on the screen: ___('Level {level}')", "print", ["print", "print()"]),
+            (f"What is the value of x after: x = {a} + {b}", str(a + b), [str(a + b)]),
+            ("What symbol starts a comment in Python?", "#", ["#", "hash", "hashtag"]),
+            ("A repeated instruction is called a ___.", "loop", ["loop"]),
+        ]
+    if grade <= 7:
+        word = ["Hi", "Code", "Python", "School", "Robot", "Loop", "Debug", "Data", "Logic", "Create"][level - 1]
+        return [
+            (f"What will Python print? print('{word}')", word, [word, word.lower()]),
+            (f"What is stored in score after: score = {a} * 2?", str(a * 2), [str(a * 2)]),
+            ("Which Python keyword starts a repeat loop over a list: for or if?", "for", ["for"]),
+            ("Complete the Python condition: if age >= 10___", ":", [":", "colon"]),
+            ("Java also uses variables. Which type stores whole numbers: int or String?", "int", ["int"]),
+        ]
+    if grade <= 9:
+        values = [level, level + 1, level + 2]
+        return [
+            (f"What is the output of Python: print({a} * {level})", str(a * level), [str(a * level)]),
+            ("Which Python type stores True or False values?", "bool", ["bool", "boolean"]),
+            (f"Complete the Python list access: marks = {values}; marks[0] is ___", str(values[0]), [str(values[0])]),
+            ("Which keyword creates a Python function?", "def", ["def"]),
+            ("In Java, which symbol ends most statements?", ";", [";", "semicolon"]),
+        ]
+    if grade <= 11:
+        items_count = level + 2
+        method_name = "main" if level < 6 else "toString"
+        return [
+            (f"What is returned by len(list(range({items_count}))) in Python?", str(items_count), [str(items_count)]),
+            ("Which Python keyword handles an error after try?", "except", ["except"]),
+            ("What does a function normally use to send a value back?", "return", ["return"]),
+            ("In object-oriented programming, a class is a blueprint for an ___.", "object", ["object", "objects"]),
+            (f"In Java, identify the method name in: public String {method_name}()", method_name, [method_name]),
+        ]
+    complexity = "O(n)" if level <= 5 else "O(n^2)"
+    loop_hint = "single loop" if level <= 5 else "nested loop"
+    return [
+        (f"Which Big O notation usually describes a {loop_hint} through n items?", complexity, [complexity.lower(), complexity, "linear" if level <= 5 else "quadratic"]),
+        ("Which Python structure maps keys to values?", "dictionary", ["dictionary", "dict"]),
+        ("What does SQL usually stand for?", "structured query language", ["structured query language", "sql"]),
+        ("In Java, which keyword creates a subclass relationship?", "extends", ["extends"]),
+        ("Which testing style checks one small function or method at a time?", "unit test", ["unit test", "unit testing", "unit"]),
+    ]
+
+
+def build_coding_questions():
+    questions = []
+    for grade in GRADE_OPTIONS:
+        for level in range(1, 11):
+            level_items = coding_items_for_grade_level(grade, level)
+            for index, (prompt, answer, accepted) in enumerate(level_items, start=1):
+                language_note = "Python"
+                if "Java" in prompt:
+                    language_note = "Java"
+                if grade >= 8 and level >= 7:
+                    language_note = "Python / Java"
+                questions.append(
+                    {
+                        "id": f"coding_g{grade}_l{level}_{index:02d}",
+                        "subject": "Kodering",
+                        "topic": "Python & Java",
+                        "grade": grade,
+                        "level": level,
+                        "prompt": f"{language_note}: {prompt}",
+                        "answer": answer,
+                        "accepted": accepted,
+                        "points": 7 + grade + level,
+                        "time_limit": 20 + min(level, 6) * 3 + max(0, grade - 7),
+                    }
+                )
+    return questions
+
+
 GRADE6_MODULE_QUESTIONS = (
     build_grade6_meetkunde_questions()
     + build_questions("afr_lang_g6", "Afrikaans", "Taal", AFRIKAANS_TAAL_LEVELS, grade=6, base_points=9, base_time=18)
@@ -889,7 +967,10 @@ LEGACY_QUESTION_BANK = [
 ]
 
 
-QUESTION_BANK = BASIC_MATH_QUESTIONS + GRADE6_MODULE_QUESTIONS + LEGACY_QUESTION_BANK
+CODING_QUESTIONS = build_coding_questions()
+
+
+QUESTION_BANK = BASIC_MATH_QUESTIONS + GRADE6_MODULE_QUESTIONS + LEGACY_QUESTION_BANK + CODING_QUESTIONS
 
 
 CATEGORIES = {
@@ -899,6 +980,7 @@ CATEGORIES = {
     "Afrikaans - Begripstoets": ("Afrikaans", "Lees"),
     "Engels - Comprehension": ("Engels", "Taal"),
     "Engels - Lees": ("Engels", "Lees"),
+    "Kodering - Python & Java": ("Kodering", "Python & Java"),
 }
 
 
@@ -1172,6 +1254,11 @@ def default_hint_for(question):
         return "Kyk na die taalreel in die vraag: meervoud, verkleining, antoniem, tydsvorm of spelling. Probeer dan weer met die korrekte vorm."
     if subject == "Engels":
         return "Look at the grammar clue in the question: tense, plural, synonym, opposite, spelling, subject, verb, or object."
+    if subject == "Kodering":
+        return (
+            "Lees die kode van links na regs en bo na onder. Kyk eers na veranderlikes, dan na berekeninge, "
+            "voorwaardes of lusse. Python gebruik eenvoudige woorde soos print, for en def; Java gebruik dikwels int, main en kommapunte."
+        )
     return "Lees die vraag stadig, merk die sleutelwoorde, en werk stap vir stap na die antwoord."
 
 
