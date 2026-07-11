@@ -368,6 +368,15 @@ st.markdown(
         white-space: pre-wrap;
     }
 
+    .code-card::before {
+        content: "Missieplan";
+        color: var(--school-yellow);
+        display: block;
+        font-family: Inter, system-ui, sans-serif;
+        font-weight: 800;
+        margin-bottom: 10px;
+    }
+
     .mission-card {
         background: rgba(15, 87, 52, 0.86);
         border: 1px solid rgba(242, 207, 74, 0.30);
@@ -2573,213 +2582,171 @@ def tetris_page():
 
 
 def coding_modules_for_grade(grade):
-    if grade <= 5:
-        return [
-            {
-                "title": "Robot Instruksies",
-                "goal": "Leer dat kode net duidelike stappe is.",
-                "training": [
-                    ("Algoritme", "'n Algoritme is 'n resep vir 'n rekenaar. Dit se presies wat eerste, tweede en derde moet gebeur."),
-                    ("Volgorde", "Python lees van bo na onder. As twee print-lyne onder mekaar staan, gebeur die boonste een eerste."),
-                    ("print", "print wys iets op die skerm. Dit is gewoonlik die eerste Python opdrag wat nuwe koders leer."),
-                ],
-                "code": "print('Hallo, Florida!')\nprint('Ek leer kode stap vir stap')",
-                "challenge": "Wat gebeur eerste: die eerste print of die tweede print?",
-                "answer": "eerste print",
-                "options": ["eerste print", "tweede print", "albei gelyk"],
-            },
-            {
-                "title": "Veranderlikes",
-                "goal": "Sit 'n waarde in 'n naam en gebruik dit weer.",
-                "training": [
-                    ("Variable", "'n Variable is soos 'n gemerkte houer. Jy sit iets daarin en gebruik die naam later weer."),
-                    ("Waarde", "Die waarde is wat binne die houer is. In naam = 'Mia' is die waarde Mia."),
-                    ("Naam", "Kies duidelike variable-name soos score, naam of ouderdom sodat jou kode maklik lees."),
-                ],
-                "code": "naam = 'Mia'\nprint(naam)",
-                "challenge": "Wat sal die program wys?",
-                "answer": "Mia",
-                "options": ["naam", "Mia", "print"],
-            },
-            {
-                "title": "Herhaal Dit",
-                "goal": "Gebruik 'n loop om iets meer as een keer te doen.",
-                "training": [
-                    ("Loop", "'n Loop laat die rekenaar dieselfde stap oor en oor doen sonder dat jy dit baie keer tik."),
-                    ("range", "range(3) beteken Python tel drie rondtes: 0, 1, 2. Dit voel vreemd, maar dit is normaal in kode."),
-                    ("Indent", "Die spasie voor print wys dit is binne die loop. Sonder die spasie verstaan Python dit anders."),
-                ],
-                "code": "for ster in range(3):\n    print('*')",
-                "challenge": "Hoeveel sterre word gewys?",
-                "answer": "3",
-                "options": ["1", "2", "3"],
-            },
-        ]
     if grade <= 7:
         return [
             {
-                "title": "Python Uitvoer",
-                "goal": "Voorspel presies wat Python op die skerm wys.",
+                "title": "Robot Avontuur",
+                "goal": "Gee 'n robot maklike instruksies om by die skat uit te kom.",
                 "training": [
-                    ("print", "print wys die finale antwoord of boodskap op die skerm. Dit help jou sien wat jou program doen."),
-                    ("Strings", "Woorde in Python staan tussen aanhalingstekens, soos 'Hallo'. Getalle het nie aanhalingstekens nodig nie."),
-                    ("Numbers", "Python kan somme doen met getalle. score + 3 tel 3 by die waarde van score."),
+                    ("Stap vir stap", "Kodering begin soos 'n speletjie: gee een klein opdrag op 'n slag, soos vorentoe, draai links, tel op."),
+                    ("Volgorde", "Die volgorde maak saak. As die robot eers draai en dan loop, beland hy op 'n ander plek."),
+                    ("Toets", "Goeie koders toets hulle plan. As die robot verkeerd loop, verander net een stap en probeer weer."),
                 ],
-                "code": "score = 7\nprint(score + 3)",
-                "challenge": "Wat is die output?",
+                "code": "Missie: Help die robot by die ster kom.\n\nBegin -> vorentoe -> vorentoe -> draai regs -> vorentoe -> tel ster op",
+                "challenge": "Wat moet die robot doen net voor hy die ster optel?",
+                "answer": "vorentoe",
+                "options": ["draai links", "vorentoe", "stop"],
+            },
+            {
+                "title": "Skatkis Geheue",
+                "goal": "Leer dat 'n program dinge kan onthou.",
+                "training": [
+                    ("Houers", "Dink aan 'n variable soos 'n skatkis met 'n naam op. Jy sit iets daarin en kry dit later weer."),
+                    ("Naamkaartjie", "As die skatkis 'telling' genoem word, weet almal dit hou punte of tellings."),
+                    ("Verander", "Die inhoud kan verander. Jy kan begin met 0 punte en later 10 punte he."),
+                ],
+                "code": "Skatkis: telling\nBeginwaarde: 0\nKry muntstuk: +10\nNuwe telling: 10",
+                "challenge": "Wat is die nuwe telling nadat jy een 10-punt muntstuk kry?",
                 "answer": "10",
-                "options": ["7", "10", "score + 3"],
+                "options": ["0", "10", "telling"],
             },
             {
-                "title": "Besluite",
-                "goal": "Gebruik if om die program te laat kies.",
+                "title": "Dans Loop",
+                "goal": "Gebruik herhaling om minder werk te doen.",
                 "training": [
-                    ("if", "if beteken: doen hierdie deel net as die toets waar is."),
-                    ("Condition", "ouderdom >= 10 is 'n toets. Dit vra of ouderdom groter of gelyk aan 10 is."),
-                    ("Colon", "Python gebruik 'n dubbelpunt na die if-lyn. Die ingeskuifde lyne daarna behoort aan die if."),
+                    ("Herhaal", "As jy dieselfde danspassie drie keer doen, hoef jy dit nie drie keer uit te skryf nie."),
+                    ("Korter plan", "Skryf: 'herhaal 3 keer' en sit die danspassie daarbinne."),
+                    ("Patrone", "Rekenaars is baie goed met patrone. Sodra jy die patroon sien, kan jy dit laat herhaal."),
                 ],
-                "code": "ouderdom = 12\nif ouderdom >= 10:\n    print('Welkom by kodering')",
-                "challenge": "Watter woord moet na die if-lyn kom in Python?",
-                "answer": ":",
-                "options": [":", ";", "."],
-            },
-            {
-                "title": "Eerste Java Idee",
-                "goal": "Sien hoe Java veranderlikes sterker benoem.",
-                "training": [
-                    ("int", "Java wil dikwels vooraf weet watter tipe data jy gebruik. int beteken 'n heelgetal."),
-                    ("String", "String beteken teks, soos 'Lebo'. Java skryf die tipe voor die variable se naam."),
-                    ("Semicolon", "Baie Java stellings eindig met 'n kommapunt. Dit is soos 'n punt aan die einde van 'n sin."),
-                ],
-                "code": "int score = 10;\nString naam = \"Lebo\";",
-                "challenge": "Watter Java tipe hou heelgetalle?",
-                "answer": "int",
-                "options": ["String", "int", "print"],
+                "code": "Herhaal 3 keer:\n  klap\n  spring\n\nDie dans doen: klap, spring, klap, spring, klap, spring",
+                "challenge": "Hoeveel keer gebeur 'spring'?",
+                "answer": "3",
+                "options": ["1", "2", "3"],
             },
         ]
     if grade <= 9:
         return [
             {
-                "title": "Lyste en Indekse",
-                "goal": "Gebruik 'n lys en onthou Python begin tel by 0.",
+                "title": "Game Telling",
+                "goal": "Bou speletjie-denke sonder moeilike taalreels.",
                 "training": [
-                    ("List", "'n List hou baie waardes in een variable, soos punte vir 'n toetsreeks."),
-                    ("Index", "Die index kies een item uit die list. marks[0] kies die eerste item."),
-                    ("Zero-based", "Python begin by 0 tel. Eerste item is 0, tweede item is 1, derde item is 2."),
+                    ("Telling", "Byna elke speletjie onthou punte. Die program moet weet hoeveel jy nou het."),
+                    ("Opdateer", "Wanneer jy iets reg doen, tel die program punte by jou telling."),
+                    ("Voorspel", "Koders lees 'n plan en voorspel wat die telling gaan wees voor hulle dit hardloop."),
                 ],
-                "code": "marks = [70, 80, 90]\nprint(marks[0])",
-                "challenge": "Wat wys marks[0]?",
-                "answer": "70",
-                "options": ["0", "70", "80"],
-            },
-            {
-                "title": "Funksies",
-                "goal": "Pak kode in 'n funksie sodat jy dit weer kan gebruik.",
-                "training": [
-                    ("def", "def begin 'n funksie in Python. 'n Funksie is 'n klein masjien met 'n naam."),
-                    ("Parameter", "x is die invoer vir die funksie. Jy kan later ander getalle instuur."),
-                    ("return", "return stuur die antwoord terug. Sonder return wys die funksie nie noodwendig die waarde vir jou nie."),
-                ],
-                "code": "def verdubbel(x):\n    return x * 2\nprint(verdubbel(6))",
+                "code": "Begin telling = 7\nBonus = 3\nNuwe telling = begin telling + bonus",
                 "challenge": "Wat is die output?",
-                "answer": "12",
-                "options": ["6", "12", "x * 2"],
+                "answer": "10",
+                "options": ["7", "10", "bonus"],
             },
             {
-                "title": "Java Teenoor Python",
-                "goal": "Vergelyk Python se eenvoud met Java se struktuur.",
+                "title": "Keusepoort",
+                "goal": "Laat 'n program besluit wat volgende gebeur.",
                 "training": [
-                    ("Semicolon", "Java gebruik dikwels ; aan die einde van 'n stelling. Python gebruik gewoonlik 'n nuwe lyn."),
-                    ("Types", "Java vra meer gereeld dat jy tipe name soos int en String skryf. Python raai dit self af."),
-                    ("main", "Groter Java programme begin gewoonlik in 'n main metode. Dit is soos die voordeur van die program."),
+                    ("As", "'As' beteken die program vra 'n vraag voordat dit 'n aksie kies."),
+                    ("Voorwaarde", "Die vraag kan wees: Is ouderdom 10 of meer? Is telling bo 50? Het die speler 'n sleutel?"),
+                    ("Pad kies", "As die antwoord ja is, vat die program een pad. As dit nee is, vat dit 'n ander pad."),
                 ],
-                "code": "System.out.println(\"Hallo\");",
-                "challenge": "Watter teken eindig baie Java stellings?",
-                "answer": ";",
-                "options": [":", ";", "#"],
+                "code": "As speler het sleutel:\n  maak deur oop\nAnders:\n  soek eers die sleutel",
+                "challenge": "Wat gebeur as die speler nie 'n sleutel het nie?",
+                "answer": "soek eers die sleutel",
+                "options": ["maak deur oop", "soek eers die sleutel", "wen dadelik"],
+            },
+            {
+                "title": "Lys Van Items",
+                "goal": "Dink oor groepe goed soos voorraad, punte of name.",
+                "training": [
+                    ("Lys", "'n Lys hou meer as een ding: appels, name, punte of vlakke."),
+                    ("Posisie", "Elke item het 'n plek. Die eerste item is die maklikste om verkeerd te tel, want rekenaars begin dikwels by 0."),
+                    ("Gebruik", "Speletjies gebruik lyste vir rugsakke, vyande, vlakke en tellings."),
+                ],
+                "code": "Rugsak items:\n0: kaart\n1: sleutel\n2: appel",
+                "challenge": "Watter item is by posisie 1?",
+                "answer": "sleutel",
+                "options": ["kaart", "sleutel", "appel"],
             },
         ]
     if grade <= 11:
         return [
             {
-                "title": "Foute en Debugging",
-                "goal": "Lees foutboodskappe en hanteer probleme netjies.",
+                "title": "Mini Funksies",
+                "goal": "Ontwerp klein herbruikbare masjientjies.",
                 "training": [
-                    ("try", "try beteken: probeer hierdie kode, maar wees gereed as iets breek."),
-                    ("except", "except vang 'n bekende fout en gee jou 'n kans om vriendelik te reageer."),
-                    ("Debug", "Debugging is speurwerk. Jy lees die fout, toets klein dele, en maak een probleem op 'n slag reg."),
+                    ("Funksie", "'n Funksie is soos 'n klein masjien. Jy gee iets in, dit doen werk, en gee iets terug."),
+                    ("Invoer", "Die invoer is wat die masjien nodig het, soos 'n getal of naam."),
+                    ("Uitvoer", "Die uitvoer is die antwoord wat terugkom, soos dubbel die getal."),
                 ],
-                "code": "try:\n    antwoord = 10 / 0\nexcept ZeroDivisionError:\n    print('Kan nie deur nul deel nie')",
-                "challenge": "Watter Python woord vang die fout?",
-                "answer": "except",
-                "options": ["return", "except", "class"],
+                "code": "Masjien: verdubbel\nInvoer: 6\nWerk: 6 x 2\nUitvoer: 12",
+                "challenge": "Wat is die uitvoer?",
+                "answer": "12",
+                "options": ["6", "12", "2"],
             },
             {
-                "title": "Objekte",
-                "goal": "Verstaan klasse as bloudrukke vir objekte.",
+                "title": "Fout Speurder",
+                "goal": "Leer hoe om probleme rustig op te spoor.",
                 "training": [
-                    ("class", "'n Class is 'n bloudruk. Dit beskryf hoe iets gebou moet word."),
-                    ("object", "'n Object is een regte ding wat uit die class gemaak is, soos een spesifieke leerder."),
-                    ("method", "'n Method is 'n funksie wat binne 'n class bly en met daardie object werk."),
+                    ("Fout", "'n Fout beteken nie jy is sleg met kode nie. Dit beteken die program wys vir jou waar om te kyk."),
+                    ("Toets klein", "Moenie alles gelyk probeer regmaak nie. Toets een klein stap op 'n slag."),
+                    ("Lees stadig", "Lees die boodskap, kyk na die lyn, vra: Wat het ek verwag en wat het gebeur?"),
                 ],
-                "code": "class Leerder:\n    def __init__(self, naam):\n        self.naam = naam",
+                "code": "Plan:\n1. Kyk waar dit breek\n2. Toets net daardie stap\n3. Maak een verandering\n4. Probeer weer",
+                "challenge": "Wat is die beste eerste stap?",
+                "answer": "kyk waar dit breek",
+                "options": ["raai sommer", "kyk waar dit breek", "verwyder alles"],
+            },
+            {
+                "title": "Bou Bloudrukke",
+                "goal": "Dink aan programme as dinge met eienskappe en aksies.",
+                "training": [
+                    ("Bloudruk", "'n Bloudruk beskryf hoe iets lyk voordat jy dit bou."),
+                    ("Eienskappe", "'n Leerder kan eienskappe he soos naam, graad en telling."),
+                    ("Aksies", "'n Leerder kan aksies he soos antwoordVraag, kryPunte of wysVordering."),
+                ],
+                "code": "Bloudruk: Leerder\nEienskappe: naam, graad, telling\nAksies: oefen, antwoord, vlakOp",
                 "challenge": "'n Class is 'n bloudruk vir 'n ...",
                 "answer": "object",
-                "options": ["object", "comment", "loop"],
-            },
-            {
-                "title": "Java Main",
-                "goal": "Herken waar Java-programme gewoonlik begin.",
-                "training": [
-                    ("main", "main is die beginpunt wat Java gewoonlik soek wanneer 'n program hardloop."),
-                    ("method", "'n Method is Java se naam vir 'n funksie wat in 'n class woon."),
-                    ("public static", "Hierdie woorde is deel van Java se struktuur. Jy hoef dit eers te herken voor jy dit volledig verstaan."),
-                ],
-                "code": "public static void main(String[] args) {\n    System.out.println(\"Start\");\n}",
-                "challenge": "Wat is die gewone Java begin-metode?",
-                "answer": "main",
-                "options": ["print", "main", "start"],
+                "options": ["object", "kleur", "klank"],
             },
         ]
     return [
         {
-            "title": "Algoritme Spoed",
-            "goal": "Begin dink oor hoe kode skaal wanneer data groter word.",
+            "title": "Slim Algoritmes",
+            "goal": "Dink soos 'n probleemoplosser voor jy soos 'n programmeerder tik.",
             "training": [
-                ("Big O", "Big O beskryf hoe vinnig werk groei wanneer die hoeveelheid data groter word."),
-                ("Linear", "O(n) beteken die werk groei saam met die aantal items. Dubbel die data, omtrent dubbel die werk."),
-                ("Nested loops", "Lusse binne lusse kan baie vinnig duur raak. Dit is dikwels O(n^2)."),
+                ("Groot data", "As daar 10 items is, kan enige plan werk. As daar 10 000 items is, moet jou plan slim wees."),
+                ("Een keer kyk", "As jy een keer deur die lys loop, groei die werk stadig en voorspelbaar."),
+                ("Baie vergelykings", "As jy elke item met elke ander item vergelyk, raak dit vinnig baie werk."),
             ],
-            "code": "for item in data:\n    print(item)",
-            "challenge": "Een loop deur n items is gewoonlik ...",
-            "answer": "O(n)",
-            "options": ["O(1)", "O(n)", "O(n^2)"],
+            "code": "Missie: Kry die hoogste telling in 'n groot lys.\nSlim plan: hou net die beste telling tot dusver.\nJy hoef nie elke telling met elke ander telling te vergelyk nie.",
+            "challenge": "Watter plan is slimmer vir 'n groot lys?",
+            "answer": "hou die beste tot dusver",
+            "options": ["raai die antwoord", "hou die beste tot dusver", "vergelyk alles met alles"],
         },
         {
-            "title": "Data Strukture",
+            "title": "Data Rugsakke",
             "goal": "Kies die regte houer vir die data wat jy nodig het.",
             "training": [
-                ("dict", "'n dictionary hou pare: 'n key en 'n value. Dit is vinnig wanneer jy iets op naam wil kry."),
-                ("Keys", "Die key is soos 'n etiket, byvoorbeeld 'naam'. Jy gebruik dit om die waarde te vind."),
-                ("Values", "Die value is die data agter die key, byvoorbeeld 'Ava' of 12."),
+                ("Lys", "Gebruik 'n lys wanneer volgorde belangrik is, soos vlak 1, vlak 2, vlak 3."),
+                ("Kaart", "Gebruik 'n key-value kaart wanneer jy iets vinnig op naam wil kry."),
+                ("Kies reg", "Die regte houer maak jou program eenvoudiger, vinniger en minder deurmekaar."),
             ],
-            "code": "student = {'naam': 'Ava', 'graad': 12}\nprint(student['naam'])",
-            "challenge": "Watter Python struktuur gebruik keys en values?",
-            "answer": "dictionary",
-            "options": ["dictionary", "loop", "string"],
+            "code": "Leerder kaart:\nnaam -> Ava\ngraad -> 12\ntelling -> 540",
+            "challenge": "Watter etiket gebruik jy om Ava te kry?",
+            "answer": "naam",
+            "options": ["naam", "graad", "telling"],
         },
         {
-            "title": "Java Oorerwing",
-            "goal": "Sien hoe groter programme klasse kan uitbrei.",
+            "title": "Van Speletjie Na Kode",
+            "goal": "Vertaal jou plan eers in gewone taal, dan later in Python of Java.",
             "training": [
-                ("extends", "extends beteken 'hierdie class bou voort op daardie ander class'."),
-                ("Inheritance", "Oorerwing laat 'n class gedrag en data van 'n ouer class kry."),
-                ("Subclass", "'n Subclass is die kind-class. Dit kan goed erf en ook sy eie nuwe gedrag byvoeg."),
+                ("Pseudokode", "Pseudokode is gewone taal wat soos kode gestruktureer is. Dit help jou dink sonder syntax-stres."),
+                ("Vertaal later", "Eers skryf jy die plan. Daarna vertaal jy dit na Python of Java wanneer die idee duidelik is."),
+                ("Minder foute", "As die plan sin maak, is die regte kode baie makliker om te bou."),
             ],
-            "code": "class Dog extends Animal {\n    void speak() { }\n}",
-            "challenge": "Watter Java keyword wys oorerwing?",
-            "answer": "extends",
-            "options": ["extends", "return", "import"],
+            "code": "As speler raak aan muntstuk:\n  tel 10 punte by\n  speel wen-klank\n  verwyder muntstuk",
+            "challenge": "Wat moet gebeur nadat die speler die muntstuk raak?",
+            "answer": "tel 10 punte by",
+            "options": ["tel 10 punte by", "begin oor", "maak die app toe"],
         },
     ]
 
@@ -2834,7 +2801,7 @@ def coding_page():
         """
         <div class="coding-hero">
             <h2>Kodering Akademie</h2>
-            <p>Leer Python stap vir stap, met klein Java idees wanneer jy gereed is. Kies 'n module, speel met die voorbeeld, en doen dan 'n kort quiz.</p>
+            <p>Begin met maklike kode-denke: robotmissies, patrone, keuses en speletjie-logika. Python en Java kom later wanneer die idees klaar maklik voel.</p>
         </div>
         """,
         unsafe_allow_html=True,
