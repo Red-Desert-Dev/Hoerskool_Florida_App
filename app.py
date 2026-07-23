@@ -4136,11 +4136,11 @@ def front_page():
         )
 
     refresh_leaderboard_snapshots()
-    render_leaderboard(f"Weeklikse Graad {student_grade} ranglys", leaderboard_query("weekly", grade=student_grade))
-    render_leaderboard(f"Graad {student_grade} Wiskunde ranglys", leaderboard_query("subject", "Wiskunde", grade=student_grade))
-    render_leaderboard(f"Graad {student_grade} taal en lees ranglys", language_leaderboard(grade=student_grade))
-    render_leaderboard(f"Graad {student_grade} akkuraatheid ranglys", accuracy_leaderboard(grade=student_grade))
-    render_leaderboard(f"Graad {student_grade} meeste verbetering", improvement_leaderboard(grade=student_grade))
+    render_leaderboard(f"Weeklikse Graad {student_grade} Ranglys", leaderboard_query("weekly", grade=student_grade))
+    render_leaderboard(f"Graad {student_grade} Wiskunde Ranglys", leaderboard_query("subject", "Wiskunde", grade=student_grade))
+    render_leaderboard(f"Graad {student_grade} Taal En Lees Ranglys", language_leaderboard(grade=student_grade))
+    render_leaderboard(f"Graad {student_grade} Akkuraatheid Ranglys", accuracy_leaderboard(grade=student_grade))
+    render_leaderboard(f"Graad {student_grade} Meeste Verbetering", improvement_leaderboard(grade=student_grade))
 
 
 @st.dialog("Tyd is om")
@@ -4399,10 +4399,10 @@ def admin_dashboard():
     else:
         st.info("Nog geen mini game tellings nie.")
 
-    title_suffix = "alle grade" if selected_grade is None else f"Graad {selected_grade}"
-    render_leaderboard(f"Weeklikse ranglys ({title_suffix})", leaderboard_query("weekly", grade=selected_grade))
-    render_leaderboard(f"Akkuraatheid ranglys ({title_suffix})", accuracy_leaderboard(grade=selected_grade))
-    render_leaderboard(f"Meeste verbetering ({title_suffix})", improvement_leaderboard(grade=selected_grade))
+    title_suffix = "Alle Grade" if selected_grade is None else f"Graad {selected_grade}"
+    render_leaderboard(f"Weeklikse Ranglys ({title_suffix})", leaderboard_query("weekly", grade=selected_grade))
+    render_leaderboard(f"Akkuraatheid Ranglys ({title_suffix})", accuracy_leaderboard(grade=selected_grade))
+    render_leaderboard(f"Meeste Verbetering ({title_suffix})", improvement_leaderboard(grade=selected_grade))
 
 
 def load_questions_for_admin(subject, topic, grade, level):
