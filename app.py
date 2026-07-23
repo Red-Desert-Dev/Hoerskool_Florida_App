@@ -1174,8 +1174,8 @@ CATEGORIES = {
     "Wiskunde - Meetkunde": ("Wiskunde", "Meetkunde"),
     "Afrikaans - Taal": ("Afrikaans", "Taal"),
     "Afrikaans - Begripstoets": ("Afrikaans", "Lees"),
-    "Engels - Comprehension": ("Engels", "Taal"),
-    "Engels - Lees": ("Engels", "Lees"),
+    "Engels - Taal": ("Engels", "Taal"),
+    "Engels - Begripstoets": ("Engels", "Lees"),
 }
 
 ADMIN_CATEGORIES = {
