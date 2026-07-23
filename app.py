@@ -57,7 +57,7 @@ AVATAR_OPTIONS = {
     "gamer": {"label": "Gamer", "face": "#d8a47f", "hair": "#1c2638", "accent": "#f2cf4a", "symbol": "🎮"},
     "pilot": {"label": "Pilot", "face": "#c98f6a", "hair": "#2d211d", "accent": "#007a3d", "symbol": "👨‍✈️"},
     "artist": {"label": "Artist", "face": "#e9b384", "hair": "#ff8a3d", "accent": "#ff4b9b", "symbol": "👨‍🎨"},
-    "coder": {"label": "Coder", "face": "#c48d67", "hair": "#16202f", "accent": "#f2cf4a", "symbol": "👨‍💻"},
+    "coder": {"label": "Supervillain", "face": "#c48d67", "hair": "#16202f", "accent": "#f2cf4a", "symbol": "🦹‍♂️"},
     "captain": {"label": "Captain", "face": "#f2c09d", "hair": "#263047", "accent": "#f2cf4a", "symbol": "🧑‍✈️"},
     "alien": {"label": "Alien", "face": "#9dffb0", "hair": "#2f6b4a", "accent": "#f2cf4a", "symbol": "👽"},
     "explorer": {"label": "Explorer", "face": "#d49a73", "hair": "#7a4d2b", "accent": "#007a3d", "symbol": "🧭"},
@@ -1209,17 +1209,19 @@ def avatar_data_uri(avatar_key):
       <defs>
         <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stop-color="{avatar['accent']}"/>
-          <stop offset="1" stop-color="#151b2f"/>
+          <stop offset="1" stop-color="#06351f"/>
         </linearGradient>
       </defs>
       <circle cx="48" cy="48" r="46" fill="url(#bg)"/>
-      <circle cx="48" cy="50" r="29" fill="{avatar['face']}"/>
-      <path d="M22 44c5-18 18-27 36-24 10 2 17 8 20 20-13-8-35-9-56 4z" fill="{avatar['hair']}"/>
-      <circle cx="37" cy="50" r="4" fill="#10131c"/>
-      <circle cx="59" cy="50" r="4" fill="#10131c"/>
-      <path d="M37 66c7 6 15 6 22 0" fill="none" stroke="#10131c" stroke-width="4" stroke-linecap="round"/>
-      <circle cx="72" cy="25" r="13" fill="#0e1117" opacity="0.85"/>
-      <text x="72" y="31" text-anchor="middle" font-size="18" font-family="Arial, sans-serif" font-weight="700" fill="{avatar['accent']}">{symbol}</text>
+      <circle cx="48" cy="48" r="39" fill="#0b3b2a" opacity="0.96"/>
+      <circle cx="48" cy="48" r="36" fill="#fff8df" opacity="0.10"/>
+      <text
+        x="48"
+        y="59"
+        text-anchor="middle"
+        font-size="48"
+        font-family="'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif"
+      >{symbol}</text>
     </svg>
     """
     encoded = base64.b64encode(svg.encode("utf-8")).decode("ascii")
