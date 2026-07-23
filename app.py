@@ -49,18 +49,18 @@ READING_PREVIEW_SECONDS_BY_LEVEL = {
 }
 
 AVATAR_OPTIONS = {
-    "astronaut": {"label": "Astronaut", "face": "#ffd7a8", "hair": "#3b2b25", "accent": "#f2cf4a", "symbol": "👨‍🚀"},
+    "astronaut": {"label": "Ruimtevaarder", "face": "#ffd7a8", "hair": "#3b2b25", "accent": "#f2cf4a", "symbol": "👨‍🚀"},
     "robot": {"label": "Robot", "face": "#b8c7d9", "hair": "#516070", "accent": "#007a3d", "symbol": "🤖"},
     "ninja": {"label": "Ninja", "face": "#f0b98d", "hair": "#10131c", "accent": "#c7252e", "symbol": "🥷"},
-    "wizard": {"label": "Wizard", "face": "#ffd1bd", "hair": "#6f4bd8", "accent": "#b76cff", "symbol": "🧙‍♂️"},
-    "scientist": {"label": "Scientist", "face": "#f4c7a1", "hair": "#e8edf5", "accent": "#007a3d", "symbol": "👨‍🔬"},
-    "gamer": {"label": "Gamer", "face": "#d8a47f", "hair": "#1c2638", "accent": "#f2cf4a", "symbol": "🎮"},
-    "pilot": {"label": "Pilot", "face": "#c98f6a", "hair": "#2d211d", "accent": "#007a3d", "symbol": "👨‍✈️"},
-    "artist": {"label": "Artist", "face": "#e9b384", "hair": "#ff8a3d", "accent": "#ff4b9b", "symbol": "👨‍🎨"},
-    "coder": {"label": "Supervillain", "face": "#c48d67", "hair": "#16202f", "accent": "#f2cf4a", "symbol": "🦹‍♂️"},
-    "captain": {"label": "Captain", "face": "#f2c09d", "hair": "#263047", "accent": "#f2cf4a", "symbol": "🧑‍✈️"},
-    "alien": {"label": "Alien", "face": "#9dffb0", "hair": "#2f6b4a", "accent": "#f2cf4a", "symbol": "👽"},
-    "explorer": {"label": "Explorer", "face": "#d49a73", "hair": "#7a4d2b", "accent": "#007a3d", "symbol": "🧭"},
+    "wizard": {"label": "Towenaar", "face": "#ffd1bd", "hair": "#6f4bd8", "accent": "#b76cff", "symbol": "🧙‍♂️"},
+    "scientist": {"label": "Wetenskaplike", "face": "#f4c7a1", "hair": "#e8edf5", "accent": "#007a3d", "symbol": "👨‍🔬"},
+    "gamer": {"label": "Speler", "face": "#d8a47f", "hair": "#1c2638", "accent": "#f2cf4a", "symbol": "🎮"},
+    "pilot": {"label": "Vlieënier", "face": "#c98f6a", "hair": "#2d211d", "accent": "#007a3d", "symbol": "👨‍✈️"},
+    "artist": {"label": "Kunstenaar", "face": "#e9b384", "hair": "#ff8a3d", "accent": "#ff4b9b", "symbol": "👨‍🎨"},
+    "coder": {"label": "Superskurk", "face": "#c48d67", "hair": "#16202f", "accent": "#f2cf4a", "symbol": "🦹‍♂️"},
+    "captain": {"label": "Kaptein", "face": "#f2c09d", "hair": "#263047", "accent": "#f2cf4a", "symbol": "🧑‍✈️"},
+    "alien": {"label": "Vreemdeling", "face": "#9dffb0", "hair": "#2f6b4a", "accent": "#f2cf4a", "symbol": "👽"},
+    "explorer": {"label": "Verkenner", "face": "#d49a73", "hair": "#7a4d2b", "accent": "#007a3d", "symbol": "🧭"},
 }
 
 
@@ -2524,7 +2524,7 @@ def login_flow():
             help="Kies jou huidige skoolgraad.",
         )
         avatar_labels = {data["label"]: key for key, data in AVATAR_OPTIONS.items()}
-        reg_avatar_label = tap_choice("Kies avatar", list(avatar_labels.keys()), key="register_avatar_choice")
+        reg_avatar_label = tap_choice("Kies Karakter", list(avatar_labels.keys()), key="register_avatar_choice")
         reg_avatar = avatar_labels[reg_avatar_label]
         st.markdown(
             f"{avatar_img_html(reg_avatar)} <strong>{reg_avatar_label}</strong>",
