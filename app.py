@@ -4119,6 +4119,9 @@ def front_page():
                 unsafe_allow_html=True,
             )
         st.markdown("### Jou Vordering Per Onderwerp")
+        display_progress_df = progress_df.copy()
+        if "topic" in display_progress_df.columns:
+            display_progress_df["topic"] = display_progress_df["topic"].replace({"Lees": "Begripstoets"})
         progress_columns = ["subject", "topic", "level", "score", "correct_count", "attempt_count", "best_streak"]
         progress_labels = {
             "subject": "Vak",
@@ -4130,7 +4133,7 @@ def front_page():
             "best_streak": "Beste Reeks",
         }
         render_html_table(
-            progress_df,
+            display_progress_df,
             [column for column in progress_columns if column in progress_df.columns],
             progress_labels,
         )
@@ -4138,7 +4141,7 @@ def front_page():
     refresh_leaderboard_snapshots()
     render_leaderboard(f"Weeklikse Graad {student_grade} Ranglys", leaderboard_query("weekly", grade=student_grade))
     render_leaderboard(f"Graad {student_grade} Wiskunde Ranglys", leaderboard_query("subject", "Wiskunde", grade=student_grade))
-    render_leaderboard(f"Graad {student_grade} Taal En Lees Ranglys", language_leaderboard(grade=student_grade))
+    render_leaderboard(f"Graad {student_grade} Taal En Begripstoets Ranglys", language_leaderboard(grade=student_grade))
     render_leaderboard(f"Graad {student_grade} Akkuraatheid Ranglys", accuracy_leaderboard(grade=student_grade))
     render_leaderboard(f"Graad {student_grade} Meeste Verbetering", improvement_leaderboard(grade=student_grade))
 
