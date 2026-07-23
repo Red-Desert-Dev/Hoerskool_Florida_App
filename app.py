@@ -1693,6 +1693,45 @@ def get_student_by_name(name):
         return conn.execute("SELECT * FROM users WHERE lower(name) = lower(?)", (name.strip(),)).fetchone()
 
 
+def duplicate_name_key(name):
+    return re.sub(r"[^a-z0-9]", "", str(name or "").strip().lower())
+
+
+def find_possible_student_duplicates(name, grade=None):
+    new_key = duplicate_name_key(name)
+    new_words = {word for word in re.split(r"\s+", str(name or "").strip().lower()) if len(word) > 1}
+    if not new_key:
+        return []
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, name, grade, avatar
+            FROM users
+            ORDER BY grade, name
+            """
+        ).fetchall()
+    matches = []
+    for row in rows:
+        existing_key = duplicate_name_key(row["name"])
+        existing_words = {word for word in re.split(r"\s+", str(row["name"] or "").strip().lower()) if len(word) > 1}
+        same_grade = grade is not None and int(row["grade"]) == int(grade)
+        same_compact_name = existing_key == new_key
+        similar_name = same_grade and len(new_words.intersection(existing_words)) >= min(2, len(new_words))
+        if same_compact_name or similar_name:
+            matches.append(row)
+    return matches
+
+
+def unique_student_name(name):
+    clean_name = str(name or "").strip()
+    if not get_student_by_name(clean_name):
+        return clean_name
+    suffix = 2
+    while get_student_by_name(f"{clean_name} ({suffix})"):
+        suffix += 1
+    return f"{clean_name} ({suffix})"
+
+
 def get_teacher_by_name(name):
     with get_conn() as conn:
         return conn.execute("SELECT * FROM teachers WHERE lower(name) = lower(?)", (name.strip(),)).fetchone()
@@ -2470,6 +2509,9 @@ def login_flow():
 
     with tab2:
         st.caption("Nuwe leerders kan self begin. Onderwysers kan later name, grade en wagwoorde regmaak.")
+        registration_success = st.session_state.pop("registration_success", None)
+        if registration_success:
+            st.success(registration_success)
         reg_name = st.text_input("Volle Naam En Van Of Gebruikersnaam", placeholder="Byvoorbeeld: Jan Botha")
         reg_pass = st.text_input("Kies 'n wagwoord", type="password", help="Gebruik iets wat jy sal onthou, maar nie jou naam alleen nie.")
         reg_pass_confirm = st.text_input("Tik wagwoord weer", type="password")
@@ -2495,11 +2537,20 @@ def login_flow():
                 st.error("Die twee wagwoorde stem nie ooreen nie.")
             elif len(reg_pass) < 4:
                 st.error("Gebruik asseblief 'n wagwoord van minstens 4 karakters.")
-            elif get_student_by_name(reg_name):
-                st.error("Daardie naam bestaan reeds.")
             else:
-                create_student(reg_name, reg_pass, reg_avatar, reg_grade)
-                st.success("Geregistreer. Jy kan nou inteken.")
+                duplicates = find_possible_student_duplicates(reg_name, reg_grade)
+                if duplicates:
+                    st.session_state.pending_duplicate_registration = {
+                        "name": reg_name.strip(),
+                        "password": reg_pass,
+                        "avatar": reg_avatar,
+                        "grade": int(reg_grade),
+                        "duplicates": [dict(row) for row in duplicates],
+                    }
+                    st.rerun()
+                else:
+                    create_student(reg_name, reg_pass, reg_avatar, reg_grade)
+                    st.success("Geregistreer. Jy kan nou inteken.")
 
     with tab3:
         st.caption("Onderwyser toegang is vir vraagbank, ranglyste en studentbestuur.")
@@ -2515,6 +2566,9 @@ def login_flow():
                 }
                 st.rerun()
             st.error("Verkeerde onderwyser besonderhede.")
+
+    if st.session_state.get("pending_duplicate_registration"):
+        duplicate_registration_dialog()
 
 
 def render_html_table(df, columns, column_labels):
@@ -2550,6 +2604,45 @@ def render_leaderboard(title, rows):
         if col in df.columns
     ]
     render_html_table(df, columns, leaderboard_column_labels())
+
+
+@st.dialog("Moontlike Duplikaat Leerder")
+def duplicate_registration_dialog():
+    pending = st.session_state.get("pending_duplicate_registration")
+    if not pending:
+        return
+    requested_name = pending["name"]
+    safe_name = unique_student_name(requested_name)
+    st.warning("Daar is reeds 'n leerder met dieselfde of baie soortgelyke besonderhede.")
+    st.write("Kyk asseblief of hierdie leerder dalk reeds geregistreer is voordat jy voortgaan.")
+    duplicates = pending.get("duplicates", [])
+    if duplicates:
+        duplicate_rows = [
+            {
+                "Naam": row["name"],
+                "Graad": int(row["grade"]),
+                "Avatar": avatar_display_label(row["avatar"]),
+            }
+            for row in duplicates
+        ]
+        render_html_table(pd.DataFrame(duplicate_rows), ["Naam", "Graad", "Avatar"], {})
+    if safe_name != requested_name:
+        st.info(f"As jy voortgaan, sal die nuwe gebruikersnaam wees: {safe_name}")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Verander Besonderhede", use_container_width=True):
+            st.session_state.pop("pending_duplicate_registration", None)
+            st.rerun()
+    with col2:
+        if st.button("Gaan Voort", type="primary", use_container_width=True):
+            try:
+                create_student(safe_name, pending["password"], pending["avatar"], pending["grade"])
+                st.session_state.registration_success = f"Geregistreer as {safe_name}. Jy kan nou inteken."
+                st.session_state.pop("pending_duplicate_registration", None)
+                st.rerun()
+            except sqlite3.IntegrityError:
+                st.error("Daardie naam bestaan reeds. Verander asseblief die besonderhede en probeer weer.")
 
 
 def render_tetris_component():
