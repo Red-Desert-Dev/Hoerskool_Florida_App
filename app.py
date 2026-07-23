@@ -2470,7 +2470,7 @@ def login_flow():
 
     with tab2:
         st.caption("Nuwe leerders kan self begin. Onderwysers kan later name, grade en wagwoorde regmaak.")
-        reg_name = st.text_input("Volle naam of gebruikersnaam", placeholder="Byvoorbeeld: Jan Botha")
+        reg_name = st.text_input("Volle Naam En Van Of Gebruikersnaam", placeholder="Byvoorbeeld: Jan Botha")
         reg_pass = st.text_input("Kies 'n wagwoord", type="password", help="Gebruik iets wat jy sal onthou, maar nie jou naam alleen nie.")
         reg_pass_confirm = st.text_input("Tik wagwoord weer", type="password")
         reg_grade = tap_choice(
