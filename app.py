@@ -4118,7 +4118,7 @@ def front_page():
     best_level = int(progress_df["level"].max()) if not progress_df.empty else 1
 
     st.markdown(
-        f'<div class="hoof-kaart">{school_crest_img_html()}<div>Welkom Terug, {avatar_img_html(ctx["avatar"])} <span class="wetenskap-teks">{ctx["name"]}</span></div></div>',
+        f'<div class="hoof-kaart">{school_crest_img_html()}<div>Welkom Terug {avatar_img_html(ctx["avatar"])} <span class="wetenskap-teks">{ctx["name"]}</span></div></div>',
         unsafe_allow_html=True,
     )
     col1, col2, col3 = st.columns(3)
