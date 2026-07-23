@@ -1885,9 +1885,18 @@ def render_countdown_timer(deadline, timer_key):
         display:flex;
         flex-direction:column;
         justify-content:center;
+        overflow:hidden;
     ">
         <div style="font-size:14px;color:#e7dcae;margin-bottom:4px;">Tyd oor</div>
-        <div id="timer-{safe_key}" style="font-size:32px;font-weight:700;color:#f2cf4a;font-family:monospace;">
+        <div id="timer-{safe_key}" style="
+            font-size:clamp(22px, 4vw, 32px);
+            font-weight:700;
+            color:#f2cf4a;
+            font-family:monospace;
+            line-height:1.05;
+            white-space:nowrap;
+            max-width:100%;
+        ">
             {remaining}s
         </div>
     </div>
@@ -1902,6 +1911,8 @@ def render_countdown_timer(deadline, timer_key):
             }}
             if (remaining <= 0) {{
                 timer{safe_key}.textContent = "Tyd is om";
+                timer{safe_key}.style.fontSize = "20px";
+                timer{safe_key}.style.letterSpacing = "0";
             }}
         }}
         updateTimer{safe_key}();
@@ -2482,6 +2493,25 @@ def login_flow():
             st.error("Verkeerde onderwyser besonderhede.")
 
 
+def render_html_table(df, columns, column_labels):
+    display_df = df[columns].rename(columns=column_labels)
+    st.markdown(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
+
+
+def leaderboard_column_labels():
+    column_labels = {
+        "avatar": "Avatar",
+        "name": "Naam",
+        "grade": "Graad",
+        "score": "Telling",
+        "accuracy": "Akkuraatheid",
+        "level": "Vlak",
+        "attempts": "Pogings",
+        "improvement": "Verbetering",
+    }
+    return column_labels
+
+
 def render_leaderboard(title, rows):
     st.markdown(f"### {title}")
     df = rows_to_dataframe(rows)
@@ -2495,18 +2525,7 @@ def render_leaderboard(title, rows):
         for col in ["avatar", "name", "grade", "score", "accuracy", "level", "attempts", "improvement"]
         if col in df.columns
     ]
-    column_labels = {
-        "avatar": "Avatar",
-        "name": "Naam",
-        "grade": "Graad",
-        "score": "Telling",
-        "accuracy": "Akkuraatheid",
-        "level": "Vlak",
-        "attempts": "Pogings",
-        "improvement": "Verbetering",
-    }
-    display_df = df[columns].rename(columns=column_labels)
-    st.markdown(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
+    render_html_table(df, columns, leaderboard_column_labels())
 
 
 def render_tetris_component():
@@ -4067,19 +4086,19 @@ def front_page():
     best_level = int(progress_df["level"].max()) if not progress_df.empty else 1
 
     st.markdown(
-        f'<div class="hoof-kaart">{school_crest_img_html()}<div>Welkom terug, {avatar_img_html(ctx["avatar"])} <span class="wetenskap-teks">{ctx["name"]}</span></div></div>',
+        f'<div class="hoof-kaart">{school_crest_img_html()}<div>Welkom Terug, {avatar_img_html(ctx["avatar"])} <span class="wetenskap-teks">{ctx["name"]}</span></div></div>',
         unsafe_allow_html=True,
     )
     col1, col2, col3 = st.columns(3)
-    col1.metric("Totale telling", total_score)
-    col2.metric("Beste vlak", best_level)
+    col1.metric("Totale Telling", total_score)
+    col2.metric("Beste Vlak", best_level)
     col3.metric("Graad", student_grade)
 
     st.markdown(
         """
         <div class="practice-guide">
             <h3>Hoe om te begin</h3>
-            <p>Kies 'n kategorie links in die kieslys, of spring in by Kodering Akademie vir Python en Java. Doen kort oefensessies, lees die wenke wanneer jy vasbrand, en kom terug na hierdie blad om jou vordering en ranglyste te sien.</p>
+            <p>Kies 'n kategorie links in die kieslys. Doen kort oefensessies, lees die wenke wanneer jy vasbrand, en kom terug na hierdie blad om jou vordering en ranglyste te sien.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -4092,18 +4111,28 @@ def front_page():
             st.markdown(
                 f"""
                 <div class="empty-state">
-                    <h3>Jou eerste oefening wag</h3>
-                    <p>Begin met enige een van hierdie afdelings in die linkerkantse kieslys:</p>
+                    <h3>Jou Eerste Oefening Wag</h3>
+                    <p>Begin Met Enige Een Van Hierdie Afdelings In Die Linkerkantse Kieslys:</p>
                     <p>{subject_links}</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-        st.markdown("### Jou vordering per onderwerp")
-        st.dataframe(
-            progress_df[["subject", "topic", "level", "score", "correct_count", "attempt_count", "best_streak"]],
-            use_container_width=True,
-            hide_index=True,
+        st.markdown("### Jou Vordering Per Onderwerp")
+        progress_columns = ["subject", "topic", "level", "score", "correct_count", "attempt_count", "best_streak"]
+        progress_labels = {
+            "subject": "Vak",
+            "topic": "Onderwerp",
+            "level": "Vlak",
+            "score": "Telling",
+            "correct_count": "Korrek",
+            "attempt_count": "Pogings",
+            "best_streak": "Beste Reeks",
+        }
+        render_html_table(
+            progress_df,
+            [column for column in progress_columns if column in progress_df.columns],
+            progress_labels,
         )
 
     refresh_leaderboard_snapshots()
