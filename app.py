@@ -102,6 +102,21 @@ def reading_pane_html(text):
     return f'<div class="reading-pane">{safe_text}</div>'
 
 
+def tap_choice(label, options, index=0, key=None, horizontal=False, help=None):
+    options = list(options)
+    if not options:
+        return None
+    safe_index = min(max(int(index), 0), len(options) - 1)
+    return st.radio(
+        label,
+        options,
+        index=safe_index,
+        key=key,
+        horizontal=horizontal,
+        help=help,
+    )
+
+
 st.set_page_config(
     page_title=f"{SCHOOL_NAME} Akademie",
     layout="wide",
@@ -2456,9 +2471,16 @@ def login_flow():
         reg_name = st.text_input("Volle naam of gebruikersnaam", placeholder="Byvoorbeeld: Jan Botha")
         reg_pass = st.text_input("Kies 'n wagwoord", type="password", help="Gebruik iets wat jy sal onthou, maar nie jou naam alleen nie.")
         reg_pass_confirm = st.text_input("Tik wagwoord weer", type="password")
-        reg_grade = st.selectbox("Graad", GRADE_OPTIONS, index=GRADE_OPTIONS.index(6), help="Kies jou huidige skoolgraad.")
+        reg_grade = tap_choice(
+            "Graad",
+            GRADE_OPTIONS,
+            index=GRADE_OPTIONS.index(6),
+            key="register_grade_choice",
+            horizontal=True,
+            help="Kies jou huidige skoolgraad.",
+        )
         avatar_labels = {data["label"]: key for key, data in AVATAR_OPTIONS.items()}
-        reg_avatar_label = st.selectbox("Kies avatar", list(avatar_labels.keys()))
+        reg_avatar_label = tap_choice("Kies avatar", list(avatar_labels.keys()), key="register_avatar_choice")
         reg_avatar = avatar_labels[reg_avatar_label]
         st.markdown(
             f"{avatar_img_html(reg_avatar)} <strong>{reg_avatar_label}</strong>",
@@ -3992,8 +4014,16 @@ def coding_page():
     col3.metric("Vlak", progress["level"])
 
     module_labels = [f"Module {idx + 1}: {module['title']}" for idx, module in enumerate(modules)]
-    selected_label = st.selectbox("Kies jou kodering module", module_labels, key="coding_module_choice")
-    module_index = module_labels.index(selected_label)
+    module_number = st.slider(
+        "Kies jou kodering module",
+        min_value=1,
+        max_value=len(modules),
+        value=int(st.session_state.get("coding_module_number", 1)),
+        step=1,
+        key="coding_module_number",
+    )
+    module_index = int(module_number) - 1
+    st.caption(module_labels[module_index])
     module = modules[module_index]
     level_floor = (module_index * 3) + 1
     lesson_level = min(10, max(level_floor, int(progress["level"])))
@@ -4277,7 +4307,7 @@ def module_practice(subject, topic):
 
 def admin_dashboard():
     st.title("Onderwyser Dashboard")
-    grade_choice = st.selectbox("Wys graad", ["Alle grade", *GRADE_OPTIONS], key="teacher_dashboard_grade")
+    grade_choice = tap_choice("Wys graad", ["Alle grade", *GRADE_OPTIONS], key="teacher_dashboard_grade", horizontal=True)
     selected_grade = None if grade_choice == "Alle grade" else int(grade_choice)
     user_where = "WHERE u.grade = ?" if selected_grade is not None else ""
     user_params = [selected_grade] if selected_grade is not None else []
@@ -4521,8 +4551,8 @@ def admin_questions_page():
     st.subheader("Vraagbank")
     st.caption("Kies 'n kategorie en vlak, wysig die vrae in die tabel, en klik Stoor. Nuwe rye kan onderaan bygevoeg word.")
 
-    grade = st.selectbox("Graad", GRADE_OPTIONS, index=GRADE_OPTIONS.index(6), key="admin_question_grade")
-    category = st.selectbox("Kategorie", list(ADMIN_CATEGORIES.keys()), key="admin_question_category")
+    grade = tap_choice("Graad", GRADE_OPTIONS, index=GRADE_OPTIONS.index(6), key="admin_question_grade", horizontal=True)
+    category = tap_choice("Kategorie", list(ADMIN_CATEGORIES.keys()), key="admin_question_category")
     subject, topic = ADMIN_CATEGORIES[category]
 
     level = st.number_input(
@@ -4671,7 +4701,7 @@ def admin_students_page():
         return
 
     student_options = {f"Graad {row['grade']} - {row['name']}": row["id"] for row in student_rows}
-    selected_label = st.selectbox("Kies student", list(student_options.keys()), key="password_reset_student")
+    selected_label = tap_choice("Kies student", list(student_options.keys()), key="password_reset_student")
     new_password = st.text_input("Nuwe wagwoord", type="password", key="password_reset_value")
     if st.button("Stel wagwoord", use_container_width=True):
         if not new_password:
@@ -4709,7 +4739,7 @@ def main():
     if st.session_state.user.get("role") == "admin":
         with st.sidebar:
             st.markdown(school_brand_html(compact=True), unsafe_allow_html=True)
-            admin_page = st.selectbox("Bladsy", ["Dashboard", "Admin", "Studente"], key="admin_page")
+            admin_page = tap_choice("Bladsy", ["Dashboard", "Admin", "Studente"], key="admin_page", horizontal=False)
             st.markdown("---")
             if st.button("Log Uit"):
                 logout()
@@ -4727,7 +4757,7 @@ def main():
             f"{avatar_img_html(st.session_state.user['avatar'])} **{st.session_state.user['name']}**",
             unsafe_allow_html=True,
         )
-        category = st.selectbox(
+        category = tap_choice(
             "Kies Kategorie",
             ["Voorblad (Stats & Leaderboard)", "Kodering Akademie", "Mini Game - Tetris", *CATEGORIES.keys()],
             key="main_navigation",
