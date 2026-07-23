@@ -1,12 +1,17 @@
+import ast
+import contextlib
 import hashlib
 import hmac
 import html
+import io
 import base64
 import json
 import os
 import random
+import re
 import secrets
 import sqlite3
+import sys
 import time
 from datetime import datetime, timedelta
 
@@ -16,7 +21,7 @@ import streamlit as st
 
 DB_FILE = "school_app.db"
 JSON_BACKUP_FILE = "db.json"
-SCHOOL_NAME = "Hoerskool Florida"
+SCHOOL_NAME = "Hoërskool Florida"
 SCHOOL_CREST_FILE = os.path.join("assets", "hoerskool_florida_wapen.png")
 APP_TAGLINE = "Bou vaardighede in wiskunde, tale en leesbegrip - een kort oefensessie op 'n slag."
 PBKDF2_ITERATIONS = 260_000
@@ -24,7 +29,7 @@ DEFAULT_TEACHER_NAME = "Onderwyser"
 DEFAULT_TEACHER_PASSWORD = "admin123"
 QUESTIONS_PER_LEVEL = 5
 INCORRECT_HINT_PENALTY = 2
-GRADE_OPTIONS = list(range(4, 13))
+GRADE_OPTIONS = list(range(2, 13))
 READING_UNTIMED_LEVELS = 4
 TETRIS_DAILY_BONUS_CAP = 100
 TETRIS_PERSONAL_BEST_BONUS = 10
@@ -97,7 +102,12 @@ def reading_pane_html(text):
     return f'<div class="reading-pane">{safe_text}</div>'
 
 
-st.set_page_config(page_title=f"{SCHOOL_NAME} Akademie", layout="wide", page_icon="HF")
+st.set_page_config(
+    page_title=f"{SCHOOL_NAME} Akademie",
+    layout="wide",
+    page_icon="HF",
+    initial_sidebar_state="expanded",
+)
 
 st.markdown(
     """
@@ -116,6 +126,31 @@ st.markdown(
         --school-text: #fff8df;
         --school-muted: #e7dcae;
         --school-shadow: rgba(0, 0, 0, 0.32);
+    }
+
+    div[data-testid="stDecoration"],
+    div[data-testid="stStatusWidget"],
+    #MainMenu,
+    footer {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+    }
+
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    div[data-testid="stToolbar"] {
+        background: transparent !important;
+    }
+
+    div[data-testid="stToolbar"] div[data-testid="stDeployButton"],
+    div[data-testid="stToolbar"] button[aria-label="Deploy"],
+    div[data-testid="stToolbar"] button[title="Deploy"] {
+        display: none !important;
+        visibility: hidden !important;
     }
 
     .stApp {
@@ -612,21 +647,61 @@ BASIC_MATH_LEVELS = {
     ],
 }
 
-BASIC_MATH_QUESTIONS = [
-    {
-        "id": f"math_alg_{level}_{index:02d}",
-        "subject": "Wiskunde",
-        "topic": "Algebra",
-        "grade": 6,
-        "level": level,
-        "prompt": prompt,
-        "answer": answer,
-        "points": 8 + (level * 2),
-        "time_limit": 15 + min(level, 5) * 3,
-    }
-    for level, questions in BASIC_MATH_LEVELS.items()
-    for index, (prompt, answer) in enumerate(questions, start=1)
-]
+FOUNDATION_MATH_LEVELS = {
+    2: {
+        1: [("2 + 3 = ?", "5"), ("4 + 1 = ?", "5"), ("5 - 2 = ?", "3"), ("6 - 1 = ?", "5"), ("Tel aan: 2, 3, 4, __", "5")],
+        2: [("7 + 2 = ?", "9"), ("8 - 3 = ?", "5"), ("10 - 4 = ?", "6"), ("5 + 4 = ?", "9"), ("Tel terug: 9, 8, 7, __", "6")],
+        3: [("10 + 5 = ?", "15"), ("12 - 2 = ?", "10"), ("11 + 3 = ?", "14"), ("15 - 5 = ?", "10"), ("Watter getal is groter: 13 of 9?", "13")],
+        4: [("20 - 7 = ?", "13"), ("14 + 6 = ?", "20"), ("18 - 8 = ?", "10"), ("9 + 8 = ?", "17"), ("Dubbel van 4 is?", "8")],
+        5: [("2 x 2 = ?", "4"), ("3 x 2 = ?", "6"), ("10 / 2 = ?", "5"), ("Halwe van 8 is?", "4"), ("5 + 5 + 5 = ?", "15")],
+        6: [("25 + 5 = ?", "30"), ("30 - 10 = ?", "20"), ("12 + 8 = ?", "20"), ("16 - 9 = ?", "7"), ("Dubbel van 6 is?", "12")],
+        7: [("2 x 5 = ?", "10"), ("4 x 2 = ?", "8"), ("12 / 2 = ?", "6"), ("3 groepe van 3 is?", "9"), ("20 - 11 = ?", "9")],
+        8: [("35 + 10 = ?", "45"), ("40 - 15 = ?", "25"), ("6 x 2 = ?", "12"), ("18 / 2 = ?", "9"), ("Tel aan in 5e: 5, 10, 15, __", "20")],
+        9: [("50 - 25 = ?", "25"), ("24 + 6 = ?", "30"), ("3 x 4 = ?", "12"), ("20 / 4 = ?", "5"), ("Dubbel van 9 is?", "18")],
+        10: [("45 + 12 = ?", "57"), ("60 - 18 = ?", "42"), ("5 x 5 = ?", "25"), ("30 / 5 = ?", "6"), ("Tel aan in 10e: 10, 20, 30, __", "40")],
+    },
+    3: {
+        1: [("12 + 8 = ?", "20"), ("15 - 6 = ?", "9"), ("24 + 5 = ?", "29"), ("30 - 7 = ?", "23"), ("Watter getal is kleiner: 18 of 21?", "18")],
+        2: [("35 + 14 = ?", "49"), ("48 - 16 = ?", "32"), ("27 + 9 = ?", "36"), ("40 - 18 = ?", "22"), ("Dubbel van 12 is?", "24")],
+        3: [("3 x 4 = ?", "12"), ("5 x 3 = ?", "15"), ("18 / 3 = ?", "6"), ("20 / 4 = ?", "5"), ("4 groepe van 5 is?", "20")],
+        4: [("6 x 5 = ?", "30"), ("7 x 3 = ?", "21"), ("24 / 6 = ?", "4"), ("30 / 5 = ?", "6"), ("Halwe van 26 is?", "13")],
+        5: [("(4 + 3) x 2 = ?", "14"), ("20 - (5 + 4) = ?", "11"), ("3 x (2 + 4) = ?", "18"), ("(18 / 3) + 5 = ?", "11"), ("10 + 10 - 6 = ?", "14")],
+        6: [("125 + 10 = ?", "135"), ("100 - 35 = ?", "65"), ("45 + 27 = ?", "72"), ("90 - 48 = ?", "42"), ("Dubbel van 25 is?", "50")],
+        7: [("8 x 4 = ?", "32"), ("6 x 6 = ?", "36"), ("36 / 6 = ?", "6"), ("42 / 7 = ?", "6"), ("9 groepe van 3 is?", "27")],
+        8: [("(6 x 4) + 5 = ?", "29"), ("50 - (3 x 8) = ?", "26"), ("(30 / 5) + 12 = ?", "18"), ("7 + (4 x 5) = ?", "27"), ("100 - 25 - 25 = ?", "50")],
+        9: [("150 + 25 = ?", "175"), ("200 - 75 = ?", "125"), ("9 x 5 = ?", "45"), ("56 / 7 = ?", "8"), ("Tel aan in 25e: 25, 50, 75, __", "100")],
+        10: [("(8 x 5) - 10 = ?", "30"), ("(60 / 6) + 18 = ?", "28"), ("90 - (7 x 8) = ?", "34"), ("45 + 35 - 20 = ?", "60"), ("Dubbel van 48 is?", "96")],
+    },
+}
+
+
+def math_levels_for_grade(grade):
+    return FOUNDATION_MATH_LEVELS.get(int(grade), BASIC_MATH_LEVELS)
+
+
+def build_basic_math_questions():
+    questions = []
+    for grade in GRADE_OPTIONS:
+        for level, items in math_levels_for_grade(grade).items():
+            for index, (prompt, answer) in enumerate(items, start=1):
+                questions.append(
+                    {
+                        "id": f"math_alg_g{grade}_{level}_{index:02d}",
+                        "subject": "Wiskunde",
+                        "topic": "Algebra",
+                        "grade": grade,
+                        "level": level,
+                        "prompt": prompt,
+                        "answer": answer,
+                        "accepted": [answer],
+                        "points": 6 + int(grade) + level,
+                        "time_limit": 18 + min(level, 5) * 3,
+                    }
+                )
+    return questions
+
+
+BASIC_MATH_QUESTIONS = build_basic_math_questions()
 
 def build_questions(prefix, subject, topic, levels, grade=6, base_points=10, base_time=18):
     questions = []
@@ -659,43 +734,61 @@ def build_questions(prefix, subject, topic, levels, grade=6, base_points=10, bas
     return questions
 
 
-def build_grade6_meetkunde_questions():
-    questions = []
-    for level in range(1, 11):
-        items = [
-            (f"Wat is die omtrek van 'n vierkant met sye van {level + 3} cm?", str((level + 3) * 4)),
-            (
-                f"Wat is die oppervlakte van 'n reghoek met lengte {level + 5} cm en breedte {level + 2} cm?",
-                str((level + 5) * (level + 2)),
-            ),
-            (
-                f"'n Reghoek het 'n omtrek van {2 * ((level + 4) + (level + 1))} cm. Die lengte is {level + 4} cm. Wat is die breedte?",
-                str(level + 1),
-            ),
-            (
-                f"Wat is die volume van 'n blok met lengte {level + 2} cm, breedte {level + 1} cm en hoogte 2 cm?",
-                str((level + 2) * (level + 1) * 2),
-            ),
-            (
-                f"'n Reguit lyn is 180 grade. Een hoek is {level * 10 + 30} grade. Hoe groot is die ander hoek?",
-                str(180 - (level * 10 + 30)),
-            ),
+def geometry_items_for_grade_level(grade, level):
+    if int(grade) <= 3:
+        side = level + 1
+        length = level + 3
+        width = level + 1
+        return [
+            (f"Hoeveel hoeke het 'n driehoek?", "3", ["3", "drie"]),
+            (f"Hoeveel sye het 'n vierkant?", "4", ["4", "vier"]),
+            (f"Wat is die omtrek van 'n vierkant met sye van {side} cm?", str(side * 4), [str(side * 4), f"{side * 4} cm", f"{side * 4}cm"]),
+            (f"Wat is die oppervlakte van 'n reghoek met lengte {length} cm en breedte {width} cm?", str(length * width), [str(length * width), f"{length * width} cm2", f"{length * width}cm2"]),
+            ("Watter vorm het geen hoeke nie?", "sirkel", ["sirkel", "kring"]),
         ]
-        for index, (prompt, answer) in enumerate(items, start=1):
-            questions.append(
-                {
-                    "id": f"math_geo_g6_{level}_{index:02d}",
-                    "subject": "Wiskunde",
-                    "topic": "Meetkunde",
-                    "grade": 6,
-                    "level": level,
-                    "prompt": prompt,
-                    "answer": answer,
-                    "accepted": [answer, f"{answer}cm", f"{answer} cm", f"{answer}cm2", f"{answer} cm2"],
-                    "points": 9 + level,
-                    "time_limit": 18 + min(level, 5) * 3,
-                }
-            )
+    return [
+        (f"Wat is die omtrek van 'n vierkant met sye van {level + 3} cm?", str((level + 3) * 4)),
+        (
+            f"Wat is die oppervlakte van 'n reghoek met lengte {level + 5} cm en breedte {level + 2} cm?",
+            str((level + 5) * (level + 2)),
+        ),
+        (
+            f"'n Reghoek het 'n omtrek van {2 * ((level + 4) + (level + 1))} cm. Die lengte is {level + 4} cm. Wat is die breedte?",
+            str(level + 1),
+        ),
+        (
+            f"Wat is die volume van 'n blok met lengte {level + 2} cm, breedte {level + 1} cm en hoogte 2 cm?",
+            str((level + 2) * (level + 1) * 2),
+        ),
+        (
+            f"'n Reguit lyn is 180 grade. Een hoek is {level * 10 + 30} grade. Hoe groot is die ander hoek?",
+            str(180 - (level * 10 + 30)),
+        ),
+    ]
+
+
+def build_meetkunde_questions():
+    questions = []
+    for grade in GRADE_OPTIONS:
+        for level in range(1, 11):
+            items = geometry_items_for_grade_level(grade, level)
+            for index, item in enumerate(items, start=1):
+                prompt, answer = item[:2]
+                accepted = item[2] if len(item) > 2 else [answer, f"{answer}cm", f"{answer} cm", f"{answer}cm2", f"{answer} cm2"]
+                questions.append(
+                    {
+                        "id": f"math_geo_g{grade}_{level}_{index:02d}",
+                        "subject": "Wiskunde",
+                        "topic": "Meetkunde",
+                        "grade": grade,
+                        "level": level,
+                        "prompt": prompt,
+                        "answer": answer,
+                        "accepted": accepted,
+                        "points": 7 + int(grade) + level,
+                        "time_limit": 18 + min(level, 5) * 3,
+                    }
+                )
     return questions
 
 
@@ -755,11 +848,11 @@ ENGLISH_READING_DATA = [
 ]
 
 
-def build_reading_questions(prefix, subject, data):
+def build_reading_questions(prefix, subject, data, grade=6):
     levels = {}
     for level, (passage, items) in enumerate(data, start=1):
         levels[level] = [(passage, prompt, answer, accepted) for prompt, answer, accepted in items]
-    return build_questions(prefix, subject, "Lees", levels, grade=6, base_points=12, base_time=25)
+    return build_questions(prefix, subject, "Lees", levels, grade=grade, base_points=10 + int(grade), base_time=25)
 
 
 def coding_items_for_grade_level(grade, level):
@@ -840,13 +933,37 @@ def build_coding_questions():
     return questions
 
 
-GRADE6_MODULE_QUESTIONS = (
-    build_grade6_meetkunde_questions()
-    + build_questions("afr_lang_g6", "Afrikaans", "Taal", AFRIKAANS_TAAL_LEVELS, grade=6, base_points=9, base_time=18)
-    + build_reading_questions("afr_read_g6", "Afrikaans", AFRIKAANS_READING_DATA)
-    + build_questions("eng_lang_g6", "Engels", "Taal", ENGLISH_TAAL_LEVELS, grade=6, base_points=9, base_time=18)
-    + build_reading_questions("eng_read_g6", "Engels", ENGLISH_READING_DATA)
-)
+def build_grade_module_questions():
+    questions = build_meetkunde_questions()
+    for grade in GRADE_OPTIONS:
+        questions.extend(
+            build_questions(
+                f"afr_lang_g{grade}",
+                "Afrikaans",
+                "Taal",
+                AFRIKAANS_TAAL_LEVELS,
+                grade=grade,
+                base_points=7 + int(grade),
+                base_time=18,
+            )
+        )
+        questions.extend(build_reading_questions(f"afr_read_g{grade}", "Afrikaans", AFRIKAANS_READING_DATA, grade=grade))
+        questions.extend(
+            build_questions(
+                f"eng_lang_g{grade}",
+                "Engels",
+                "Taal",
+                ENGLISH_TAAL_LEVELS,
+                grade=grade,
+                base_points=7 + int(grade),
+                base_time=18,
+            )
+        )
+        questions.extend(build_reading_questions(f"eng_read_g{grade}", "Engels", ENGLISH_READING_DATA, grade=grade))
+    return questions
+
+
+GRADE_MODULE_QUESTIONS = build_grade_module_questions()
 
 
 LEGACY_QUESTION_BANK = [
@@ -1034,7 +1151,7 @@ LEGACY_QUESTION_BANK = [
 CODING_QUESTIONS = build_coding_questions()
 
 
-QUESTION_BANK = BASIC_MATH_QUESTIONS + GRADE6_MODULE_QUESTIONS + LEGACY_QUESTION_BANK + CODING_QUESTIONS
+QUESTION_BANK = BASIC_MATH_QUESTIONS + GRADE_MODULE_QUESTIONS + LEGACY_QUESTION_BANK + CODING_QUESTIONS
 
 
 CATEGORIES = {
@@ -2378,7 +2495,18 @@ def render_leaderboard(title, rows):
         for col in ["avatar", "name", "grade", "score", "accuracy", "level", "attempts", "improvement"]
         if col in df.columns
     ]
-    st.markdown(df[columns].to_html(escape=False, index=False), unsafe_allow_html=True)
+    column_labels = {
+        "avatar": "Avatar",
+        "name": "Naam",
+        "grade": "Graad",
+        "score": "Telling",
+        "accuracy": "Akkuraatheid",
+        "level": "Vlak",
+        "attempts": "Pogings",
+        "improvement": "Verbetering",
+    }
+    display_df = df[columns].rename(columns=column_labels)
+    st.markdown(display_df.to_html(escape=False, index=False), unsafe_allow_html=True)
 
 
 def render_tetris_component():
@@ -2389,14 +2517,15 @@ def render_tetris_component():
         <div style="min-width:190px;">
           <div style="font-size:13px;color:#e7dcae;">Tetris Score</div>
           <div id="score" style="font-size:38px;font-weight:800;color:#f2cf4a;margin-bottom:10px;">0</div>
-          <button id="startBtn" style="width:100%;padding:10px;border:0;border-radius:6px;background:#f2cf4a;color:#06351f;font-weight:800;cursor:pointer;">START</button>
-          <button id="submitBtn" style="width:100%;padding:10px;border:1px solid #d5b03a;border-radius:6px;background:#0f5734;color:#fff8df;font-weight:700;margin-top:8px;cursor:pointer;">STOOR TELLING</button>
+          <button id="startBtn" type="button" style="width:100%;padding:10px;border:0;border-radius:6px;background:#f2cf4a;color:#06351f;font-weight:800;cursor:pointer;">START</button>
+          <button id="submitBtn" type="button" style="width:100%;padding:10px;border:1px solid #d5b03a;border-radius:6px;background:#0f5734;color:#fff8df;font-weight:700;margin-top:8px;cursor:pointer;">STOOR TELLING</button>
           <form id="scoreForm" method="GET" target="_parent" style="display:none;">
             <input id="scoreInput" name="tetris_score" value="0" />
+            <input id="scoreNonceInput" name="tetris_score_nonce" value="0" />
           </form>
           <div style="display:grid;grid-template-columns:repeat(3,52px);gap:6px;margin-top:14px;justify-content:center;">
-            <button data-action="left">&larr;</button><button data-action="rotate">&#8635;</button><button data-action="right">&rarr;</button>
-            <button data-action="down" style="grid-column:1 / span 3;">&darr;</button>
+            <button type="button" data-action="left">&larr;</button><button type="button" data-action="rotate">&#8635;</button><button type="button" data-action="right">&rarr;</button>
+            <button type="button" data-action="down" style="grid-column:1 / span 3;">&darr;</button>
           </div>
           <div style="font-size:12px;color:#e7dcae;margin-top:12px;line-height:1.35;">Keyboard: &larr; &rarr; move, &uarr; rotate, &darr; soft drop. Mobile buttons work too.</div>
           <div id="status" style="font-size:13px;color:#f2cf4a;margin-top:10px;"></div>
@@ -2413,6 +2542,9 @@ def render_tetris_component():
     const scoreEl = document.getElementById('score');
     const statusEl = document.getElementById('status');
     const COLS = 10, ROWS = 20, BLOCK = 20;
+    const START_DROP_INTERVAL = 850;
+    const MIN_DROP_INTERVAL = 140;
+    const SPEED_UP_PER_LINE = 45;
     const colors = [null, '#f2cf4a', '#007a3d', '#fff8df', '#c7252e', '#d5b03a', '#0f5734', '#e34b52'];
     const pieces = {
       T: [[0,1,0],[1,1,1],[0,0,0]],
@@ -2457,7 +2589,10 @@ def render_tetris_component():
       }
       if (lines) {
         score += [0, 100, 300, 500, 800][lines] || lines * 250;
-        dropInterval = Math.max(180, dropInterval - lines * 20);
+        dropInterval = Math.max(MIN_DROP_INTERVAL, dropInterval - lines * SPEED_UP_PER_LINE);
+        statusEl.textContent = lines === 1
+          ? 'Mooi. Die volgende blok val vinniger.'
+          : `Mooi. ${lines} lyne skoon. Die spel raak vinniger.`;
       }
     }
     function playerDrop() {
@@ -2506,13 +2641,27 @@ def render_tetris_component():
       if (running) requestAnimationFrame(update);
     }
     function startGame() {
-      resetBoard(); player = randomPiece(); score = 0; dropCounter = 0; dropInterval = 850; lastTime = 0; running = true; gameOver = false;
+      resetBoard(); player = randomPiece(); score = 0; dropCounter = 0; dropInterval = START_DROP_INTERVAL; lastTime = 0; running = true; gameOver = false;
       statusEl.textContent = '';
       update();
     }
     function submitScore() {
+      if (!score || score <= 0) {
+        statusEl.textContent = "Speel eers om 'n telling te kry.";
+        return;
+      }
       document.getElementById('scoreInput').value = String(score);
-      document.getElementById('scoreForm').submit();
+      const nonce = String(Date.now());
+      document.getElementById('scoreNonceInput').value = nonce;
+      statusEl.textContent = 'Stoor telling...';
+      try {
+        const params = new URLSearchParams(window.parent.location.search);
+        params.set('tetris_score', String(score));
+        params.set('tetris_score_nonce', nonce);
+        window.parent.location.search = params.toString();
+      } catch (error) {
+        document.getElementById('scoreForm').submit();
+      }
     }
     document.getElementById('startBtn').onclick = startGame;
     document.getElementById('submitBtn').onclick = submitScore;
@@ -2545,20 +2694,43 @@ def tetris_page():
     user_id = user["id"]
     grade = int(user.get("grade", 6))
 
+    pending_message = st.session_state.pop("tetris_save_message", None)
+    if pending_message:
+        message_type, message = pending_message
+        if message_type == "success":
+            st.success(message)
+        else:
+            st.info(message)
+
     if "tetris_score" in st.query_params:
+        submit_nonce = str(st.query_params.get("tetris_score_nonce", ""))
+        already_processed = submit_nonce and st.session_state.get("last_tetris_score_nonce") == submit_nonce
         try:
             submitted_score = int(st.query_params.get("tetris_score", 0))
         except (TypeError, ValueError):
             submitted_score = 0
-        result = record_tetris_score(user_id, grade, submitted_score)
-        remaining_params = {key: value for key, value in st.query_params.items() if key != "tetris_score"}
+        if already_processed:
+            result = {"saved": False, "message": "Hierdie telling is reeds verwerk."}
+        else:
+            result = record_tetris_score(user_id, grade, submitted_score)
+            if submit_nonce:
+                st.session_state.last_tetris_score_nonce = submit_nonce
+        remaining_params = {
+            key: value
+            for key, value in st.query_params.items()
+            if key not in {"tetris_score", "tetris_score_nonce"}
+        }
         st.query_params.clear()
         for key, value in remaining_params.items():
             st.query_params[key] = value
         if result["saved"]:
-            st.success(f"Tetris telling gestoor: {submitted_score}. {result['message']}.")
+            st.session_state.tetris_save_message = (
+                "success",
+                f"Tetris telling gestoor: {submitted_score}. {result['message']}.",
+            )
         else:
-            st.info(result["message"])
+            st.session_state.tetris_save_message = ("info", result["message"])
+        st.rerun()
 
     st.title("Mini Game - Tetris")
     used = tetris_daily_bonus_used(user_id)
@@ -2624,164 +2796,626 @@ def coding_modules_for_grade(grade):
                 "options": ["1", "2", "3"],
             },
         ]
-    if grade <= 9:
-        return [
+    modules = [
+        {
+            "title": "Tetris Bouplan",
+            "goal": "Sien die speletjie as klein dele: bord, blok, speler, telling en tyd.",
+            "training": [
+                ("Bord", "Tetris speel op 'n rooster. Elke blokkie is leeg of vol, amper soos 'n Excel-blad vir 'n speletjie."),
+                ("Blok", "Elke vorm bestaan uit klein blokkies. 'n L-vorm, vierkant of lang lyn is net 'n patroon op die rooster."),
+                ("Speler", "Die speler beheer die aktiewe blok: links, regs, draai en vinniger af."),
+            ],
+            "code": "Tetris dele:\n- bord: 10 kolomme x 20 rye\n- aktiewe blok: vorm + x-posisie + y-posisie\n- telling: begin by 0\n- tyd: elke paar millisekondes val die blok",
+            "challenge": "Wat is die beste manier om die Tetris-bord voor te stel?",
+            "answer": "rooster",
+            "options": ["rooster", "lang paragraaf", "een groot prent"],
+            "activity": "Mini-missie: Teken 'n 10 x 20 rooster op papier en kleur een T-blok in. Jy het pas die eerste data-model gebou.",
+        },
+        {
+            "title": "Beweeg Die Blok",
+            "goal": "Laat die aktiewe blok reageer op speler-invoer.",
+            "training": [
+                ("Invoer", "Die sleutelbord of selfoonknoppies stuur 'n aksie soos links, regs, draai of af."),
+                ("Posisie", "Links en regs verander die x-posisie. Af verander die y-posisie."),
+                ("Toets", "Na elke beweging toets die speletjie of die blok nog binne die bord is."),
+            ],
+            "code": "As speler druk links:\n  skuif blok x - 1\nAs speler druk regs:\n  skuif blok x + 1\nAs speler druk af:\n  skuif blok y + 1",
+            "challenge": "Watter posisie verander as die blok links of regs beweeg?",
+            "answer": "x-posisie",
+            "options": ["x-posisie", "telling", "bordhoogte"],
+            "activity": "Speel-speel taak: Kies 'n blok op die bord en voorspel sy nuwe x-posisie nadat hy twee keer regs beweeg.",
+        },
+        {
+            "title": "Botsing Speurder",
+            "goal": "Keer dat blokke deur mure of ander blokke beweeg.",
+            "training": [
+                ("Botsing", "Botsing beteken die blok probeer op 'n plek wees waar hy nie mag wees nie."),
+                ("Mure", "As x kleiner as 0 of buite die bord is, tref die blok 'n muur."),
+                ("Vaste blokke", "As die aktiewe blok aan 'n bestaande blok raak, moet hy stop en deel van die bord word."),
+            ],
+            "code": "Probeer skuif\nAs nuwe plek bots:\n  skuif terug\nAnders:\n  hou nuwe plek",
+            "challenge": "Wat moet gebeur as 'n blok teen 'n muur bots?",
+            "answer": "skuif terug",
+            "options": ["skuif terug", "kry 1000 punte", "verwyder die bord"],
+            "activity": "Debug-missie: Vind een skuif wat onwettig is en verduidelik hoekom die spel dit moet blokkeer.",
+        },
+    ]
+    if grade >= 9:
+        modules.extend([
             {
-                "title": "Game Telling",
-                "goal": "Bou speletjie-denke sonder moeilike taalreels.",
+                "title": "Volle Lyn = Punte",
+                "goal": "Maak vol rye skoon en gee punte wanneer die speler slim bou.",
                 "training": [
-                    ("Telling", "Byna elke speletjie onthou punte. Die program moet weet hoeveel jy nou het."),
-                    ("Opdateer", "Wanneer jy iets reg doen, tel die program punte by jou telling."),
-                    ("Voorspel", "Koders lees 'n plan en voorspel wat die telling gaan wees voor hulle dit hardloop."),
+                    ("Ry lees", "Die program kyk deur elke ry en vra: is elke blokkie vol?"),
+                    ("Skoonmaak", "Wanneer 'n ry vol is, word hy uitgevee en 'n nuwe leë ry kom bo in."),
+                    ("Beloning", "Die speler kry punte. Meer lyne op een slag gee 'n groter beloning."),
                 ],
-                "code": "Begin telling = 7\nBonus = 3\nNuwe telling = begin telling + bonus",
-                "challenge": "Wat is die output?",
-                "answer": "10",
-                "options": ["7", "10", "bonus"],
+                "code": "Vir elke ry in bord:\n  as al die blokkies vol is:\n    verwyder ry\n    sit leë ry bo\n    tel punte by",
+                "challenge": "Wanneer moet Tetris punte bytel?",
+                "answer": "as 'n ry vol is",
+                "options": ["as 'n ry vol is", "as die speler wag", "as die bord leeg is"],
+                "activity": "Punt-missie: Bou 'n ry met net een oop blokkie. Watter blok sal die lyn voltooi?",
             },
             {
-                "title": "Keusepoort",
-                "goal": "Laat 'n program besluit wat volgende gebeur.",
+                "title": "Spoed Wat Groei",
+                "goal": "Maak die spel opwindender deur blokke vinniger te laat val wanneer lyne voltooi word.",
                 "training": [
-                    ("As", "'As' beteken die program vra 'n vraag voordat dit 'n aksie kies."),
-                    ("Voorwaarde", "Die vraag kan wees: Is ouderdom 10 of meer? Is telling bo 50? Het die speler 'n sleutel?"),
-                    ("Pad kies", "As die antwoord ja is, vat die program een pad. As dit nee is, vat dit 'n ander pad."),
+                    ("Valtyd", "Die game loop wag 'n kort tyd voordat die blok een stap af beweeg."),
+                    ("Vinniger", "As 'n lyn skoon is, maak ons die wagtyd kleiner. Kleiner tyd beteken vinniger spel."),
+                    ("Limiet", "Daar moet 'n minimum wagtyd wees sodat die spel moeilik maar nog speelbaar bly."),
                 ],
-                "code": "As speler het sleutel:\n  maak deur oop\nAnders:\n  soek eers die sleutel",
-                "challenge": "Wat gebeur as die speler nie 'n sleutel het nie?",
-                "answer": "soek eers die sleutel",
-                "options": ["maak deur oop", "soek eers die sleutel", "wen dadelik"],
+                "code": "As lyne_skoon > 0:\n  telling = telling + punte\n  valtyd = valtyd - 45\n  as valtyd < 140:\n    valtyd = 140",
+                "challenge": "Wat gebeur as die valtyd kleiner word?",
+                "answer": "die blok val vinniger",
+                "options": ["die blok val vinniger", "die telling word nul", "die bord verdwyn"],
+                "activity": "Tempo-toets: Begin met 850 ms. Na twee lyne, hoeveel vinniger voel die spel as elke lyn 45 ms aftrek?",
+            },
+        ])
+    if grade >= 10:
+        modules.extend([
+            {
+                "title": "Game Loop",
+                "goal": "Bou die hartklop van die spel: update, teken, herhaal.",
+                "training": [
+                    ("Update", "Update verander die spel: blok val, botsing word getoets, lyne word skoongemaak."),
+                    ("Teken", "Draw wys die nuwe toestand op die skerm."),
+                    ("Herhaal", "Die loop hardloop weer en weer totdat die game over is."),
+                ],
+                "code": "Terwyl spel loop:\n  meet tyd sedert laaste raam\n  as genoeg tyd verby is:\n    laat blok val\n  teken bord en blok",
+                "challenge": "Wat is die game loop se werk?",
+                "answer": "update en teken herhaal",
+                "options": ["update en teken herhaal", "net wag", "net die naam wys"],
+                "activity": "Loop-lab: Sit drie kaartjies in volgorde: Update, Draw, Repeat. Skuif hulle tot die spelvloei sin maak.",
             },
             {
-                "title": "Lys Van Items",
-                "goal": "Dink oor groepe goed soos voorraad, punte of name.",
+                "title": "Funksies Vir Elke Taak",
+                "goal": "Breek die Tetris-kode in klein funksies wat maklik is om te toets.",
                 "training": [
-                    ("Lys", "'n Lys hou meer as een ding: appels, name, punte of vlakke."),
-                    ("Posisie", "Elke item het 'n plek. Die eerste item is die maklikste om verkeerd te tel, want rekenaars begin dikwels by 0."),
-                    ("Gebruik", "Speletjies gebruik lyste vir rugsakke, vyande, vlakke en tellings."),
+                    ("Klein take", "Een funksie moet een duidelike werk doen, soos rotate, collide, sweep of draw."),
+                    ("Herbruikbaar", "Dieselfde funksie kan elke keer gebruik word wanneer 'n blok beweeg."),
+                    ("Minder chaos", "Klein funksies maak foute makliker om te vind."),
                 ],
-                "code": "Rugsak items:\n0: kaart\n1: sleutel\n2: appel",
-                "challenge": "Watter item is by posisie 1?",
-                "answer": "sleutel",
-                "options": ["kaart", "sleutel", "appel"],
+                "code": "funksies:\n- move(direction)\n- rotate(block)\n- collide(block, board)\n- sweepLines(board)\n- draw(board, block)",
+                "challenge": "Watter funksie toets of 'n blok teen iets raak?",
+                "answer": "collide",
+                "options": ["collide", "draw", "score"],
+                "activity": "Naam-uitdaging: Kies goeie funksiename vir links skuif, draai en lyn skoonmaak.",
             },
-        ]
-    if grade <= 11:
-        return [
+        ])
+    if grade >= 11:
+        modules.extend([
             {
-                "title": "Mini Funksies",
-                "goal": "Ontwerp klein herbruikbare masjientjies.",
+                "title": "Data-Strukture Vir Vorms",
+                "goal": "Stoor elke Tetris-vorm as data wat Python, Java of JavaScript kan lees.",
                 "training": [
-                    ("Funksie", "'n Funksie is soos 'n klein masjien. Jy gee iets in, dit doen werk, en gee iets terug."),
-                    ("Invoer", "Die invoer is wat die masjien nodig het, soos 'n getal of naam."),
-                    ("Uitvoer", "Die uitvoer is die antwoord wat terugkom, soos dubbel die getal."),
+                    ("Matrix", "'n Vorm kan 'n klein 2D-lys wees: 0 beteken leeg, 1 beteken vol."),
+                    ("Rotasie", "Om 'n blok te draai, verander jy die matrix se rye en kolomme."),
+                    ("Tale", "Python gebruik lyste, Java gebruik arrays of lyste, JavaScript gebruik arrays. Die idee bly dieselfde."),
                 ],
-                "code": "Masjien: verdubbel\nInvoer: 6\nWerk: 6 x 2\nUitvoer: 12",
-                "challenge": "Wat is die uitvoer?",
-                "answer": "12",
-                "options": ["6", "12", "2"],
-            },
-            {
-                "title": "Fout Speurder",
-                "goal": "Leer hoe om probleme rustig op te spoor.",
-                "training": [
-                    ("Fout", "'n Fout beteken nie jy is sleg met kode nie. Dit beteken die program wys vir jou waar om te kyk."),
-                    ("Toets klein", "Moenie alles gelyk probeer regmaak nie. Toets een klein stap op 'n slag."),
-                    ("Lees stadig", "Lees die boodskap, kyk na die lyn, vra: Wat het ek verwag en wat het gebeur?"),
-                ],
-                "code": "Plan:\n1. Kyk waar dit breek\n2. Toets net daardie stap\n3. Maak een verandering\n4. Probeer weer",
-                "challenge": "Wat is die beste eerste stap?",
-                "answer": "kyk waar dit breek",
-                "options": ["raai sommer", "kyk waar dit breek", "verwyder alles"],
+                "code": "T-vorm as data:\n0 1 0\n1 1 1\n0 0 0\n\nPython: [[0,1,0],[1,1,1],[0,0,0]]",
+                "challenge": "Wat beteken 0 in die vorm-matrix?",
+                "answer": "leeg",
+                "options": ["leeg", "vol", "game over"],
+                "activity": "Matrix-missie: Ontwerp jou eie 3 x 3 vorm met 0's en 1's en voorspel hoe dit sal lyk.",
             },
             {
-                "title": "Bou Bloudrukke",
-                "goal": "Dink aan programme as dinge met eienskappe en aksies.",
+                "title": "Debug Soos 'n Game Dev",
+                "goal": "Gebruik klein toetse om Tetris-foute vinnig op te spoor.",
                 "training": [
-                    ("Bloudruk", "'n Bloudruk beskryf hoe iets lyk voordat jy dit bou."),
-                    ("Eienskappe", "'n Leerder kan eienskappe he soos naam, graad en telling."),
-                    ("Aksies", "'n Leerder kan aksies he soos antwoordVraag, kryPunte of wysVordering."),
+                    ("Reproduce", "Kry 'n fout wat jy weer kan laat gebeur. Dan kan jy hom regtig regmaak."),
+                    ("Log", "Wys x, y, telling of valtyd terwyl jy toets."),
+                    ("Een verandering", "Maak net een verandering op 'n slag, anders weet jy nie wat die fout reggemaak het nie."),
                 ],
-                "code": "Bloudruk: Leerder\nEienskappe: naam, graad, telling\nAksies: oefen, antwoord, vlakOp",
-                "challenge": "'n Class is 'n bloudruk vir 'n ...",
-                "answer": "object",
-                "options": ["object", "kleur", "klank"],
+                "code": "Debug plan:\n1. Speel tot die fout gebeur\n2. Skryf neer wat jy gedoen het\n3. Wys x, y en valtyd\n4. Verander een ding\n5. Toets weer",
+                "challenge": "Wat is die veiligste manier om 'n fout reg te maak?",
+                "answer": "een verandering op 'n slag",
+                "options": ["een verandering op 'n slag", "alles gelyk verander", "die fout ignoreer"],
+                "activity": "Fout-speurder: As 'n blok deur die vloer val, watter twee waardes sal jy eerste log?",
             },
-        ]
+        ])
+    if grade >= 12:
+        modules.extend([
+            {
+                "title": "Stoor Telling En Ranglys",
+                "goal": "Koppel die speletjie aan die app sodat tellings gestoor en vergelyk kan word.",
+                "training": [
+                    ("Submit", "Die speletjie stuur die telling na die hoof app wanneer die speler Stoor Telling druk."),
+                    ("Databasis", "Die app stoor user_id, graad, telling, bonus en tyd in 'n tabel."),
+                    ("Ranglys", "Die scoreboard vra die databasis vir die beste tellings en sorteer dit van hoog na laag."),
+                ],
+                "code": "Wanneer speler stoor:\n  stuur score na app\n  app skryf score in databasis\n  ranglys lees beste score per leerder\n  wys hoogste tellings eerste",
+                "challenge": "Waar moet die Tetris-telling bly sodat die ranglys dit later kan wys?",
+                "answer": "databasis",
+                "options": ["databasis", "net op die skerm", "in die speler se kop"],
+                "activity": "Produk-missie: Besluit watter velde jy in 'n game_scores tabel nodig het vir 'n skoolranglys.",
+            },
+            {
+                "title": "Maak Dit Jou Eie",
+                "goal": "Ontwerp 'n uitbreiding wat die Tetris-spel meer Hoërskool Florida laat voel.",
+                "training": [
+                    ("Tema", "Kleure, klanke en boodskappe kan die spel soos die skool se handelsmerk laat voel."),
+                    ("Balans", "Bonusreëls moet motiverend wees sonder om akademiese punte onregverdig te maak."),
+                    ("Verbeter", "Goeie ontwikkelaars kyk hoe mense speel en verbeter dan die ervaring."),
+                ],
+                "code": "Uitbreidingsidees:\n- Hoërskool Florida kleurtema\n- Graad-rekord badge\n- Moeilikheid per vlak\n- Weeklikse uitdaging\n- Veilige bonuslimiet",
+                "challenge": "Waarom moet bonuspunte 'n limiet he?",
+                "answer": "sodat dit regverdig bly",
+                "options": ["sodat dit regverdig bly", "sodat niemand speel nie", "sodat die app stadiger is"],
+                "activity": "Pitch-missie: Skryf een nuwe Tetris-feature neer en verduidelik hoe dit leerders sal motiveer.",
+            },
+        ])
+    return modules
+
+
+def coding_modules_for_grade(grade):
     return [
         {
-            "title": "Slim Algoritmes",
-            "goal": "Dink soos 'n probleemoplosser voor jy soos 'n programmeerder tik.",
-            "training": [
-                ("Groot data", "As daar 10 items is, kan enige plan werk. As daar 10 000 items is, moet jou plan slim wees."),
-                ("Een keer kyk", "As jy een keer deur die lys loop, groei die werk stadig en voorspelbaar."),
-                ("Baie vergelykings", "As jy elke item met elke ander item vergelyk, raak dit vinnig baie werk."),
+            "title": "Betree die Kode-oerwoud",
+            "goal": "Verstaan wat programmering is en skryf jou eerste program.",
+            "character": "Kode-App",
+            "lessons": [
+                ("Missie", "Kode-App wil die rekenaar laat praat. Jou werk is om vir die rekenaar presiese instruksies te gee."),
+                ("Wat is programmering?", "Programmering is 'n lys instruksies wat 'n rekenaar stap vir stap uitvoer."),
+                ("Program vs toepassing", "'n Program is die kode wat werk doen. 'n Toepassing is die produk wat mense gebruik."),
+                ("Sintaksis", "Sintaksis is die reels van kode: hakies, aanhalingstekens, kommapunte en inkeping."),
             ],
-            "code": "Missie: Kry die hoogste telling in 'n groot lys.\nSlim plan: hou net die beste telling tot dusver.\nJy hoef nie elke telling met elke ander telling te vergelyk nie.",
-            "challenge": "Watter plan is slimmer vir 'n groot lys?",
-            "answer": "hou die beste tot dusver",
-            "options": ["raai die antwoord", "hou die beste tot dusver", "vergelyk alles met alles"],
+            "python_code": 'print("Hallo, programmeerder!")',
+            "java_code": 'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hallo, programmeerder!");\n    }\n}',
+            "challenge": "Wat doen print()?",
+            "answer": "Dit wys inligting",
+            "options": ["Dit vee 'n program uit", "Dit wys inligting", "Dit skakel die rekenaar aan", "Dit skep 'n wagwoord"],
+            "explanation": "print() wys teks of inligting op die skerm.",
+            "activity": "Skryf 'n program wat drie reels oor jouself vertoon.",
+            "victory": "Uitstekend. Jy het pas 'n rekenaar instruksies gegee. Volgende leer jy hoe om inligting te onthou.",
         },
         {
-            "title": "Data Rugsakke",
-            "goal": "Kies die regte houer vir die data wat jy nodig het.",
-            "training": [
-                ("Lys", "Gebruik 'n lys wanneer volgorde belangrik is, soos vlak 1, vlak 2, vlak 3."),
-                ("Kaart", "Gebruik 'n key-value kaart wanneer jy iets vinnig op naam wil kry."),
-                ("Kies reg", "Die regte houer maak jou program eenvoudiger, vinniger en minder deurmekaar."),
+            "title": "Die Veranderlike-kluis",
+            "goal": "Leer hoe rekenaars inligting bere.",
+            "character": "Veranderlike-kluisbewaarder",
+            "lessons": [
+                ("Missie", "Jy moet 'n speler se naam, telling en vlak onthou."),
+                ("Veranderlike", "'n Veranderlike is 'n naam vir 'n stukkie inligting."),
+                ("Verander", "Die waarde kan later verander, soos telling wat groter word."),
+                ("Python vs Java", "Python raai die tipe makliker. Java vra dat jy die tipe duidelik noem."),
             ],
-            "code": "Leerder kaart:\nnaam -> Ava\ngraad -> 12\ntelling -> 540",
-            "challenge": "Watter etiket gebruik jy om Ava te kry?",
-            "answer": "naam",
-            "options": ["naam", "graad", "telling"],
+            "python_code": 'naam = "Mia"\ntelling = 95\nprint(naam)\nprint(telling)',
+            "java_code": 'String naam = "Mia";\nint telling = 95;\nSystem.out.println(naam);\nSystem.out.println(telling);',
+            "challenge": "Watter kode bere die getal 42?",
+            "answer": "telling = 42",
+            "options": ["42 = telling", "telling = 42", "bere telling 42", "getal(telling)"],
+            "explanation": "Die veranderlike se naam kom links en die waarde kom regs.",
+            "activity": "Skep veranderlikes vir 'n speler se naam, telling en vlak.",
+            "victory": "Mooi. Jou kode kan nou onthou. Volgende kyk ons watter tipe data in die kluis kan wees.",
         },
         {
-            "title": "Van Speletjie Na Kode",
-            "goal": "Vertaal jou plan eers in gewone taal, dan later in Python of Java.",
-            "training": [
-                ("Pseudokode", "Pseudokode is gewone taal wat soos kode gestruktureer is. Dit help jou dink sonder syntax-stres."),
-                ("Vertaal later", "Eers skryf jy die plan. Daarna vertaal jy dit na Python of Java wanneer die idee duidelik is."),
-                ("Minder foute", "As die plan sin maak, is die regte kode baie makliker om te bou."),
+            "title": "Die Dieretuin van Datatipes",
+            "goal": "Identifiseer teks, heelgetalle, desimale getalle en waar/onwaar-waardes.",
+            "character": "Kode-App",
+            "lessons": [
+                ("String", "Teks soos \"Hallo\" word 'n string genoem."),
+                ("Integer", "Heelgetalle soos 25 word vir tel gebruik."),
+                ("Double/float", "Desimale getalle soos 3.14 hou breuke."),
+                ("Boolean", "True of False help programme besluit."),
             ],
-            "code": "As speler raak aan muntstuk:\n  tel 10 punte by\n  speel wen-klank\n  verwyder muntstuk",
-            "challenge": "Wat moet gebeur nadat die speler die muntstuk raak?",
-            "answer": "tel 10 punte by",
-            "options": ["tel 10 punte by", "begin oor", "maak die app toe"],
+            "python_code": 'naam = "Alex"\nouderdom = 15\nlengte = 1.72\nhet_huisdier = True\n\nprint(naam)\nprint(ouderdom)\nprint(lengte)\nprint(het_huisdier)',
+            "java_code": 'String naam = "Alex";\nint ouderdom = 15;\ndouble lengte = 1.72;\nboolean hetHuisdier = true;\n\nSystem.out.println(naam);\nSystem.out.println(ouderdom);\nSystem.out.println(lengte);\nSystem.out.println(hetHuisdier);',
+            "challenge": "Watter datatipe verteenwoordig False?",
+            "answer": "Boolean",
+            "options": ["String", "Heelgetal", "Boolean", "Desimale getal"],
+            "explanation": "False is 'n boolean, want dit beteken onwaar.",
+            "activity": "Skep 'n profiel vir 'n superheld met naam, ouderdom, kragvlak en isHeld.",
+            "victory": "Goed gedoen. Jy ken nou die diere in die data-dieretuin.",
+        },
+        {
+            "title": "Invoer: Praat met die Rekenaar",
+            "goal": "Maak programme interaktief deur gebruiker-invoer te lees.",
+            "character": "Robot Rex",
+            "lessons": [
+                ("Vra", "Die program kan die gebruiker 'n vraag vra."),
+                ("Lees", "Invoer kom dikwels as teks in."),
+                ("Omskakel", "As jy wiskunde wil doen, verander teks na 'n getal."),
+                ("Gebruik", "Gebruik die invoer in 'n boodskap of berekening."),
+            ],
+            "python_code": 'naam = input("Wat is jou naam? ")\nprint("Welkom, " + naam + "!")',
+            "java_code": 'import java.util.Scanner;\nScanner invoer = new Scanner(System.in);\nSystem.out.print("Wat is jou naam? ");\nString naam = invoer.nextLine();\nSystem.out.println("Welkom, " + naam + "!");',
+            "challenge": "Waarom moet invoer soms na 'n heelgetal verander word?",
+            "answer": "Invoer word dikwels as teks behandel",
+            "options": ["Rekenaars hou nie van getalle nie", "Invoer word dikwels as teks behandel", "Heelgetalle verwyder alle foute", "Dit maak die skerm helderder"],
+            "explanation": "input() gee gewoonlik teks terug, selfs wanneer die gebruiker 15 tik.",
+            "activity": "Bou 'n program wat bereken hoe oud iemand volgende jaar sal wees.",
+            "victory": "Nou praat jou program terug. Volgende gebruik ons wiskunde-magie.",
+        },
+        {
+            "title": "Wiskunde-magie",
+            "goal": "Gebruik rekenkundige operatore in programme.",
+            "character": "Funksie-towenaar",
+            "lessons": [
+                ("Plus en minus", "Gebruik + en - vir optelling en aftrekking."),
+                ("Maal en deel", "Gebruik * en / vir vermenigvuldiging en deling."),
+                ("Oorblyfsel", "% gee wat oorbly nadat jy deel."),
+                ("Sakrekenaar", "Kombineer invoer en operatore om 'n klein sakrekenaar te bou."),
+            ],
+            "python_code": "appels = 17\nvriende = 5\noorblyfsel = appels % vriende\nprint(oorblyfsel)",
+            "java_code": "int appels = 17;\nint vriende = 5;\nint oorblyfsel = appels % vriende;\nSystem.out.println(oorblyfsel);",
+            "challenge": "Wat is die resultaat van 17 % 5?",
+            "answer": "2",
+            "options": ["2", "3", "5", "15"],
+            "explanation": "17 gedeel deur 5 los 2 oor.",
+            "activity": "Bou 'n program wat versnaperinge gelykop tussen vriende verdeel.",
+            "victory": "Knap. Jou kode kan nou somme doen sonder om moeg te word.",
+        },
+        {
+            "title": "Die Besluitberg",
+            "goal": "Gebruik if, else en elif om keuses te maak.",
+            "character": "Kode-App",
+            "lessons": [
+                ("if", "if toets of iets waar is."),
+                ("else", "else gebeur wanneer die if-toets vals is."),
+                ("elif", "elif gee nog 'n moontlike pad."),
+                ("Vergelyk", "Gebruik >=, <=, == en != om waardes te vergelyk."),
+            ],
+            "python_code": 'telling = 82\nif telling >= 50:\n    print("Jy slaag!")\nelse:\n    print("Probeer weer!")',
+            "java_code": 'int telling = 82;\nif (telling >= 50) {\n    System.out.println("Jy slaag!");\n} else {\n    System.out.println("Probeer weer!");\n}',
+            "challenge": "Wat gebeur wanneer die voorwaarde in 'n if-stelling vals is?",
+            "answer": "Die if-blok word oorgeslaan",
+            "options": ["Die rekenaar breek", "Die if-blok word oorgeslaan", "Die program herhaal vir altyd", "Die waarde verander outomaties"],
+            "explanation": "Wanneer die toets vals is, loop die if-blok nie.",
+            "activity": "Skep 'n program wat bepaal of 'n leerder geslaag het.",
+            "victory": "Jy het die besluitberg geklim. Volgende kombineer ons voorwaardes.",
+        },
+        {
+            "title": "Die Logika-laboratorium",
+            "goal": "Kombineer voorwaardes met logiese operatore.",
+            "character": "Gogga-speurder",
+            "lessons": [
+                ("Gelyk", "== toets of twee waardes dieselfde is."),
+                ("Nie gelyk", "!= toets of waardes verskil."),
+                ("and", "and beteken albei voorwaardes moet waar wees."),
+                ("or/not", "or vra vir ten minste een waar; not draai waar en vals om."),
+            ],
+            "python_code": 'ouderdom = 16\nhet_kaartjie = True\nif ouderdom >= 13 and het_kaartjie:\n    print("Jy mag ingaan.")',
+            "java_code": 'int ouderdom = 16;\nboolean hetKaartjie = true;\nif (ouderdom >= 13 && hetKaartjie) {\n    System.out.println("Jy mag ingaan.");\n}',
+            "challenge": "Wat beteken and?",
+            "answer": "Albei voorwaardes moet waar wees",
+            "options": ["Ten minste een voorwaarde moet waar wees", "Albei voorwaardes moet waar wees", "Geen voorwaarde is belangrik nie", "Die program herhaal"],
+            "explanation": "and is streng: links en regs moet waar wees.",
+            "activity": "Bou 'n program wat bepaal of iemand 'n konsert mag binnegaan.",
+            "victory": "Logika ontsluit. Nou kan jou program slimmer besluit.",
+        },
+        {
+            "title": "Die Lus-strandmeer",
+            "goal": "Herhaal instruksies met for-lusse.",
+            "character": "Kaptein Lus",
+            "lessons": [
+                ("Waarom lusse?", "Lusse herhaal werk sonder dat jy dieselfde kode oor en oor skryf."),
+                ("Python for", "range() help Python om deur getalle te stap."),
+                ("Java for", "Java se for-lus wys begin, toets en verandering."),
+                ("Tel", "Lusse is uitstekend vir aftel, optel en patrone."),
+            ],
+            "python_code": "for getal in range(1, 6):\n    print(getal)",
+            "java_code": "for (int getal = 1; getal <= 5; getal++) {\n    System.out.println(getal);\n}",
+            "challenge": "Waarom gebruik programmeerders lusse?",
+            "answer": "Om instruksies doeltreffend te herhaal",
+            "options": ["Om instruksies doeltreffend te herhaal", "Om veranderlikes te verwyder", "Om alle kode te stop", "Om wagwoorde te skep"],
+            "explanation": "Lusse maak herhaling korter en netjieser.",
+            "activity": "Skep 'n aftelprogram vir 'n vuurpylansering.",
+            "victory": "Kaptein Lus salueer. Jy kan nou herhaal sonder kopieer-en-plak.",
+        },
+        {
+            "title": "Die while-lus-dwarrel",
+            "goal": "Gebruik while-lusse en voorkom oneindige lusse.",
+            "character": "Kaptein Lus",
+            "lessons": [
+                ("while", "while loop solank 'n voorwaarde waar is."),
+                ("Verander", "Verander die lusveranderlike sodat die lus kan stop."),
+                ("Oneindig", "'n Oneindige lus stop nooit vanself nie."),
+                ("Aftelling", "while is goed vir energie, tyd en aftellings."),
+            ],
+            "python_code": 'energie = 3\nwhile energie > 0:\n    print("Energie oor:", energie)\n    energie -= 1',
+            "java_code": 'int energie = 3;\nwhile (energie > 0) {\n    System.out.println("Energie oor: " + energie);\n    energie--;\n}',
+            "challenge": "Wat veroorsaak 'n oneindige lus?",
+            "answer": "Die voorwaarde word nooit vals nie",
+            "options": ["Die voorwaarde word nooit vals nie", "Die program het 'n veranderlike", "Die lus loop net een keer", "Die kode gebruik getalle"],
+            "explanation": "As die voorwaarde altyd waar bly, hou die lus aan loop.",
+            "activity": "Skep 'n robotbattery-simulator.",
+            "victory": "Jy het uit die dwarrel ontsnap. Volgende stap ons deur lyste.",
+        },
+        {
+            "title": "Die Lys-oerwoud",
+            "goal": "Bere verskeie waardes in lyste en skikkings.",
+            "character": "Kode-App",
+            "lessons": [
+                ("Lys", "'n Lys hou meer as een waarde."),
+                ("Indeks", "Die eerste item is gewoonlik by indeks 0."),
+                ("Verander", "Jy kan items byvoeg, lees en verwyder."),
+                ("Java skikkings", "Java arrays hou ook meer as een waarde."),
+            ],
+            "python_code": 'troeteldiere = ["kat", "hond", "hamster"]\nprint(troeteldiere[0])',
+            "java_code": 'String[] troeteldiere = {"kat", "hond", "hamster"};\nSystem.out.println(troeteldiere[0]);',
+            "challenge": "Wat is die indeks van die eerste item in die meeste programmeertale?",
+            "answer": "0",
+            "options": ["0", "1", "-1", "10"],
+            "explanation": "Die meeste programmeertale begin lyste by 0 tel.",
+            "activity": "Skep 'n digitale skooltas met vakke of items.",
+            "victory": "Jy het jou pad deur die lys-oerwoud gevind.",
+        },
+        {
+            "title": "Die String-safari",
+            "goal": "Werk met teks in kode.",
+            "character": "Kode-App",
+            "lessons": [
+                ("Bymekaar voeg", "Strings kan saamgevoeg word om boodskappe te bou."),
+                ("Hoofletters", ".upper() maak letters hoofletters."),
+                ("Lengte", "len() tel hoeveel karakters in teks is."),
+                ("Vergelyk", "Programme kan teks soek en vergelyk."),
+            ],
+            "python_code": 'woord = "programmering"\nprint(woord.upper())\nprint(len(woord))',
+            "java_code": 'String woord = "programmering";\nSystem.out.println(woord.toUpperCase());\nSystem.out.println(woord.length());',
+            "challenge": "Wat doen .upper()?",
+            "answer": "Dit verander letters na hoofletters",
+            "options": ["Dit verwyder teks", "Dit verander letters na hoofletters", "Dit tel getalle", "Dit skep 'n lus"],
+            "explanation": ".upper() verander teks soos hallo na HALLO.",
+            "activity": "Skep 'n program wat geheime boodskappe verander.",
+            "victory": "String-safari voltooi. Jou teks kan nou truuks doen.",
+        },
+        {
+            "title": "Die Funksie-fabriek",
+            "goal": "Skep herbruikbare blokke kode.",
+            "character": "Funksie-towenaar",
+            "lessons": [
+                ("Funksie", "'n Funksie is 'n klein kode-masjien met 'n naam."),
+                ("Roep", "Jy roep die funksie wanneer jy dit wil gebruik."),
+                ("Parameters", "Parameters is inligting wat jy vir die funksie gee."),
+                ("return", "return stuur 'n antwoord terug."),
+            ],
+            "python_code": 'def aanmoediging(naam):\n    return "Komaan, " + naam + "!"\n\nboodskap = aanmoediging("Sam")\nprint(boodskap)',
+            "java_code": 'static String aanmoediging(String naam) {\n    return "Komaan, " + naam + "!";\n}',
+            "challenge": "Waarom is funksies nuttig?",
+            "answer": "Kode kan hergebruik word",
+            "options": ["Kode kan hergebruik word", "Dit maak rekenaars stadiger", "Dit verwyder veranderlikes", "Dit voorkom invoer"],
+            "explanation": "Funksies keer dat jy dieselfde oplossing oor en oor hoef te skryf.",
+            "activity": "Skep 'n superheldnaam-generator.",
+            "victory": "Die fabriek loop. Volgende voeg ons verrassing by.",
+        },
+        {
+            "title": "Die Ewekansigheidsreaktor",
+            "goal": "Voeg verrassing en onvoorspelbaarheid by programme.",
+            "character": "Robot Rex",
+            "lessons": [
+                ("Random getalle", "random kan 'n getal kies wat jy nie vooraf weet nie."),
+                ("Kies item", "Programme kan ewekansig uit 'n lys kies."),
+                ("Speletjies", "Ewekansigheid maak speletjies minder voorspelbaar."),
+                ("Toets", "Random programme moet meer as een keer getoets word."),
+            ],
+            "python_code": 'import random\ngetal = random.randint(1, 6)\nprint("Jy het gerol:", getal)',
+            "java_code": 'import java.util.Random;\nRandom r = new Random();\nint getal = r.nextInt(6) + 1;\nSystem.out.println("Jy het gerol: " + getal);',
+            "challenge": "Waarom is ewekansigheid nuttig in speletjies?",
+            "answer": "Dit voeg verrassing en verskeidenheid by",
+            "options": ["Dit maak elke resultaat voorspelbaar", "Dit voeg verrassing en verskeidenheid by", "Dit verwyder alle keuses", "Dit stop die program"],
+            "explanation": "Random laat elke speelsessie anders voel.",
+            "activity": "Bou 'n digitale dobbelsteen.",
+            "victory": "Die reaktor zoem. Jou programme kan nou verras.",
+        },
+        {
+            "title": "Gogga-speurder-hoofkwartier",
+            "goal": "Leer om foute te vind en reg te stel.",
+            "character": "Gogga-speurder",
+            "lessons": [
+                ("Sintaksisfout", "Die kode breek omdat die taalreels verkeerd is."),
+                ("Logikafout", "Die program loop, maar die antwoord is verkeerd."),
+                ("Looptydfout", "Die program begin, maar breek terwyl dit loop."),
+                ("Lees foutboodskappe", "Foutboodskappe wys dikwels waar jy moet kyk."),
+            ],
+            "python_code": 'ouderdom = input("Hoe oud is jy? ")\nprint(ouderdom + 1)\n\n# Reg:\nouderdom = int(input("Hoe oud is jy? "))\nprint(ouderdom + 1)',
+            "java_code": 'String ouderdom = "15";\n// Reg vir wiskunde:\nint ouderdomGetal = Integer.parseInt(ouderdom);\nSystem.out.println(ouderdomGetal + 1);',
+            "challenge": "Wat is 'n logikafout?",
+            "answer": "Die program loop, maar gee die verkeerde resultaat",
+            "options": ["Die program kan glad nie begin nie", "Die program loop, maar gee die verkeerde resultaat", "Die sleutelbord is stukkend", "'n Veranderlike word geskep"],
+            "explanation": "'n Logikafout is stil gevaarlik: die kode loop, maar dink verkeerd.",
+            "activity": "Herstel drie programme wat doelbewus foute bevat.",
+            "victory": "Gogga gevang. Jy debug nou soos 'n regte programmeerder.",
+        },
+        {
+            "title": "Woordeboeke en Data-kaarte",
+            "goal": "Stoor verwante inligting met sleutel-waarde-pare.",
+            "character": "Veranderlike-kluisbewaarder",
+            "lessons": [
+                ("Woordeboek", "'n Woordeboek hou waardes met etikette."),
+                ("Sleutel", "Die sleutel is die etiket waarmee jy die waarde kry."),
+                ("Verander", "Jy kan waardes byvoeg of opdateer."),
+                ("Java Map", "Java gebruik Map vir dieselfde idee."),
+            ],
+            "python_code": 'speler = {"naam": "Zara", "telling": 120, "vlak": 3}\nprint(speler["telling"])',
+            "java_code": 'Map<String, Integer> speler = new HashMap<>();\nspeler.put("telling", 120);\nSystem.out.println(speler.get("telling"));',
+            "challenge": "Wat is 'n sleutel in 'n woordeboek?",
+            "answer": "'n Etiket waarmee 'n waarde gevind word",
+            "options": ["'n Etiket waarmee 'n waarde gevind word", "'n Rekenaarwagwoord", "'n Lus", "'n Getalgenerator"],
+            "explanation": "Die sleutel help jou om die regte waarde vinnig te kry.",
+            "activity": "Skep 'n kaart met 'n speletjiespeler se besonderhede.",
+            "victory": "Data-kaart oopgesluit. Jou kode kan nou beter organiseer.",
+        },
+        {
+            "title": "Die Stad van Objekgeorienteerde Programmering",
+            "goal": "Verstaan klasse en objekte.",
+            "character": "Funksie-towenaar",
+            "lessons": [
+                ("Objek", "'n Objek stel iets in die regte wereld of speletjie voor."),
+                ("Klas", "'n Klas is die bloudruk vir objekte."),
+                ("Eienskappe", "Eienskappe beskryf die objek, soos naam of energie."),
+                ("Metodes", "Metodes is aksies wat die objek kan doen."),
+            ],
+            "python_code": 'class Robot:\n    def __init__(self, naam):\n        self.naam = naam\n    def praat(self):\n        print(self.naam, "se: piep!")\n\nrobot = Robot("Rex")\nrobot.praat()',
+            "java_code": 'class Robot {\n    String naam;\n    Robot(String naam) { this.naam = naam; }\n    void praat() { System.out.println(naam + " se: piep!"); }\n}',
+            "challenge": "Wat is 'n objek?",
+            "answer": "'n Werklike idee wat deur kode voorgestel word",
+            "options": ["'n Werklike idee wat deur kode voorgestel word", "'n Sintaksisfout", "'n Lusvoorwaarde", "'n Kommentaar"],
+            "explanation": "'n Objek is kode se weergawe van iets soos 'n robot, speler of troeteldier.",
+            "activity": "Skep 'n virtuele troeteldierklas.",
+            "victory": "Welkom in die objekstad. Nou kan jy groter programme bou.",
+        },
+        {
+            "title": "Speletjieskepping-berg",
+            "goal": "Kombineer veranderlikes, besluite, lusse, invoer en ewekansigheid.",
+            "character": "Robot Rex",
+            "lessons": [
+                ("Ontwerp", "Begin met 'n eenvoudige speletjie-idee."),
+                ("Keuses", "Laat die speler kies wat volgende gebeur."),
+                ("Gesondheid en punte", "Gebruik veranderlikes om speltoestand te hou."),
+                ("Wen of verloor", "Gebruik if-stellings vir eindes."),
+            ],
+            "python_code": 'gesondheid = 3\nskat = False\nif gesondheid > 0 and skat:\n    print("Jy wen!")\nelse:\n    print("Verken verder.")',
+            "java_code": 'int gesondheid = 3;\nboolean skat = false;\nif (gesondheid > 0 && skat) {\n    System.out.println("Jy wen!");\n}',
+            "challenge": "Watter konsep help om te besluit of 'n speler gewen het?",
+            "answer": "'n if-stelling",
+            "options": ["'n if-stelling", "'n Kommentaar", "Net 'n string", "Net 'n klasnaam"],
+            "explanation": "Wen/verloor is 'n besluit, en if is vir besluite.",
+            "activity": "Bou 'n teksavontuurspeletjie.",
+            "victory": "Jy is op die bergtop. Jou konsepte werk nou saam.",
+        },
+        {
+            "title": "Die Data-speurder",
+            "goal": "Gebruik kode om data te ondersoek en op te som.",
+            "character": "Gogga-speurder",
+            "lessons": [
+                ("Tellings", "Stoor baie tellings in 'n lys."),
+                ("Hoogste", "max() kan die hoogste telling vind."),
+                ("Gemiddeld", "Som gedeel deur aantal gee gemiddelde."),
+                ("Besluite", "Data help mense beter besluite neem."),
+            ],
+            "python_code": 'tellings = [72, 88, 91, 65]\ngemiddeld = sum(tellings) / len(tellings)\nprint("Gemiddeld:", gemiddeld)',
+            "java_code": 'int[] tellings = {72, 88, 91, 65};\nint totaal = 0;\nfor (int t : tellings) { totaal += t; }\nSystem.out.println(totaal / tellings.length);',
+            "challenge": "Waarom is data-analise nuttig?",
+            "answer": "Dit help ons om patrone te ontdek en besluite te neem",
+            "options": ["Dit help ons om patrone te ontdek en besluite te neem", "Dit laat data verdwyn", "Dit voorkom berekeninge", "Dit werk net met speletjies"],
+            "explanation": "Data-analise verander rou getalle in insig.",
+            "activity": "Ontleed klasuitslae of sportstatistiek.",
+            "victory": "Data-saak opgelos. Jy kan nou patrone raaksien.",
+        },
+        {
+            "title": "Programmeringsmissies uit die Regte Wereld",
+            "goal": "Sien hoe programmering alledaagse probleme oplos.",
+            "character": "Kode-App",
+            "lessons": [
+                ("Probleem", "Goeie programme begin met 'n werklike probleem."),
+                ("Gereedskap", "Voorbeelde: wagwoordtoetser, omskakelaar, studiebeplanner of kletsbot."),
+                ("Gebruiker", "Dink aan wie die program gaan gebruik."),
+                ("Waarde", "Die program moet iemand help om iets makliker te doen."),
+            ],
+            "python_code": 'wagwoord = "Skool2026!"\nif len(wagwoord) >= 8:\n    print("Sterker wagwoord")',
+            "java_code": 'String wagwoord = "Skool2026!";\nif (wagwoord.length() >= 8) {\n    System.out.println("Sterker wagwoord");\n}',
+            "challenge": "Wat maak 'n program nuttig?",
+            "answer": "Dit los 'n probleem vir iemand op",
+            "options": ["Dit los 'n probleem vir iemand op", "Dit bevat die meeste kode", "Dit gebruik moeilike woorde", "Dit aanvaar nooit invoer nie"],
+            "explanation": "Nuttige kode dien 'n menslike behoefte.",
+            "activity": "Bou 'n hulpmiddel wat 'n probleem in jou eie lewe oplos.",
+            "victory": "Jy dink nou soos 'n bouer, nie net soos 'n leerder nie.",
+        },
+        {
+            "title": "Kode-App se Finale Uitdaging",
+            "goal": "Beplan, bou, toets en bied 'n finale projek aan.",
+            "character": "Kode-App",
+            "lessons": [
+                ("Kies", "Kies 'n projekidee wat jou interesseer."),
+                ("Beplan", "Skryf pseudokode voordat jy begin tik."),
+                ("Bou", "Maak eers 'n klein weergawe wat werk."),
+                ("Bied aan", "Verduidelik die probleem, oplossing, fout en volgende verbetering."),
+            ],
+            "python_code": '# Finale projek plan\nprojek = "Studiebeplanner"\nprobleem = "Ek vergeet wanneer om te leer"\nprint(projek, probleem)',
+            "java_code": 'String projek = "Studiebeplanner";\nString probleem = "Ek vergeet wanneer om te leer";\nSystem.out.println(projek + ": " + probleem);',
+            "challenge": "Wat moet programmeerders doen wanneer hul eerste weergawe nie werk nie?",
+            "answer": "Toets, ontfout en verbeter dit",
+            "options": ["Gee dadelik op", "Toets, ontfout en verbeter dit", "Vee die rekenaar uit", "Blameer die sleutelbord"],
+            "explanation": "Die eerste weergawe is net die begin. Verbetering is deel van programmering.",
+            "activity": "Kies een finale projek en verduidelik watter probleem dit oplos.",
+            "victory": "Finale missie ontsluit. Jy is gereed om jou eie projek te bou en te wys.",
         },
     ]
 
 
 def render_coding_module(module, index):
+    lessons = module.get("lessons") or module.get("training", [])
     st.markdown(
         f"""
         <div class="coding-hero">
             <h2>Module {index}: {html.escape(module["title"])}</h2>
             <p>{html.escape(module["goal"])}</p>
+            <p><strong>{html.escape(module.get("character", "Kode-App"))}</strong> lei hierdie missie.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    cols = st.columns(3)
-    for col, (heading, explanation) in zip(cols, module["training"]):
-        col.markdown(
+    for lesson_index in range(0, len(lessons), 3):
+        cols = st.columns(min(3, len(lessons) - lesson_index))
+        for col, (heading, explanation) in zip(cols, lessons[lesson_index:lesson_index + 3]):
+            col.markdown(
+                f"""
+                <div class="mission-card">
+                    <strong>{html.escape(heading)}</strong>
+                    <span>{html.escape(explanation)}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    code_tabs = []
+    if module.get("python_code"):
+        code_tabs.append(("Python", module["python_code"], "python"))
+    if module.get("java_code"):
+        code_tabs.append(("Java", module["java_code"], "java"))
+    if code_tabs:
+        tabs = st.tabs([label for label, _, _ in code_tabs])
+        for tab, (_, code, language) in zip(tabs, code_tabs):
+            with tab:
+                st.code(code, language=language)
+    elif module.get("code"):
+        st.markdown(f'<div class="code-card">{html.escape(module["code"])}</div>', unsafe_allow_html=True)
+    render_code_playground(module, index)
+    st.markdown("### Kode-App-raaisel")
+    st.markdown(f"**{module['challenge']}**")
+    for option in module["options"]:
+        st.markdown(f"- {html.escape(option)}")
+    if module.get("explanation"):
+        st.info(f"Antwoord: {module['answer']}. {module['explanation']}")
+    if module.get("victory"):
+        st.markdown(
             f"""
-            <div class="mission-card">
-                <strong>{html.escape(heading)}</strong>
-                <span>{html.escape(explanation)}</span>
+            <div class="practice-guide">
+                <h3>Oorwinning</h3>
+                <p>{html.escape(module["victory"])}</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
-    st.markdown(f'<div class="code-card">{html.escape(module["code"])}</div>', unsafe_allow_html=True)
 
 
 def coding_module_quiz(module, grade, module_index):
-    first_heading, first_explanation = module["training"][0]
-    second_heading, _ = module["training"][1]
+    lessons = module.get("lessons") or module.get("training", [])
+    first_heading, first_explanation = lessons[0]
+    second_heading, _ = lessons[1] if len(lessons) > 1 else ("Volgende konsep", "")
+    quiz_id_prefix = f"coding_course_m{module_index + 1}"
     return [
         {
-            "id": f"coding_module_g{grade}_{module_index}_concept",
-            "prompt": f"Volgens hierdie module, wat beteken '{first_heading}'?",
+            "id": f"{quiz_id_prefix}_concept",
+            "prompt": f"Volgens hierdie module, wat leer jy by '{first_heading}'?",
             "options": [
                 first_explanation,
                 f"Dit beteken dieselfde as '{second_heading}'.",
@@ -2791,8 +3425,8 @@ def coding_module_quiz(module, grade, module_index):
             "points": 10 + int(grade),
         },
         {
-            "id": f"coding_module_g{grade}_{module_index}_mission",
-            "prompt": "Waaroor gaan die missieplan in hierdie module?",
+            "id": f"{quiz_id_prefix}_mission",
+            "prompt": "Wat is die hoofdoel van hierdie module?",
             "options": [
                 module["goal"],
                 "Om 'n lang Python toets te skryf.",
@@ -2802,7 +3436,7 @@ def coding_module_quiz(module, grade, module_index):
             "points": 10 + int(grade),
         },
         {
-            "id": f"coding_module_g{grade}_{module_index}_challenge",
+            "id": f"{quiz_id_prefix}_challenge",
             "prompt": module["challenge"],
             "options": module["options"],
             "answer": module["answer"],
@@ -2826,6 +3460,20 @@ def coding_quiz_question_for_attempt(quiz_item, grade, level):
     }
 
 
+def stable_shuffled_options(options, seed, answer=None):
+    unique_options = []
+    for option in options:
+        if option not in unique_options:
+            unique_options.append(option)
+    rng_seed = int(hashlib.sha256(str(seed).encode("utf-8")).hexdigest()[:12], 16)
+    shuffled = unique_options[:]
+    random.Random(rng_seed).shuffle(shuffled)
+    if answer is not None and len(shuffled) > 1 and normalize_answer(shuffled[0]) == normalize_answer(answer):
+        swap_index = 1 + (rng_seed % (len(shuffled) - 1))
+        shuffled[0], shuffled[swap_index] = shuffled[swap_index], shuffled[0]
+    return shuffled
+
+
 def completed_coding_quiz_ids(user_id, quiz_questions):
     question_ids = [question["id"] for question in quiz_questions]
     if not question_ids:
@@ -2845,6 +3493,460 @@ def completed_coding_quiz_ids(user_id, quiz_questions):
     return {row["question_id"] for row in rows}
 
 
+class SafeRandom:
+    def randint(self, start, end):
+        return random.randint(int(start), int(end))
+
+    def choice(self, items):
+        return random.choice(list(items))
+
+
+def safe_python_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name == "random":
+        return SafeRandom()
+    raise ImportError(f"Die speelgrond laat nie import '{name}' toe nie.")
+
+
+def validate_python_playground_code(code):
+    allowed_nodes = (
+        ast.Module, ast.Expr, ast.Assign, ast.AugAssign, ast.Name, ast.Load, ast.Store,
+        ast.Constant, ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare, ast.If, ast.For,
+        ast.While, ast.Break, ast.Continue, ast.List, ast.Tuple, ast.Dict, ast.Subscript,
+        ast.Slice, ast.Call, ast.keyword, ast.Return, ast.FunctionDef, ast.arguments,
+        ast.arg, ast.ClassDef, ast.Attribute, ast.Pass, ast.Import, ast.alias,
+        ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow,
+        ast.USub, ast.UAdd, ast.And, ast.Or, ast.Not,
+        ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+    )
+    allowed_calls = {
+        "print", "input", "int", "str", "float", "bool", "len", "sum", "max", "min",
+        "range", "round", "abs", "list",
+    }
+    allowed_attributes = {
+        "upper", "lower", "title", "strip", "replace", "append", "pop", "get",
+        "put", "randint", "choice", "praat", "naam",
+    }
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        return None, f"Sintaksisfout op lyn {exc.lineno}: {exc.msg}"
+
+    user_defined_calls = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and not node.name.startswith("__")
+    }
+    for node in ast.walk(tree):
+        if not isinstance(node, allowed_nodes):
+            return None, f"Hierdie kode gebruik nog 'n gevorderde deel wat die speelgrond nie hardloop nie: {type(node).__name__}."
+        if isinstance(node, ast.Name) and node.id.startswith("__"):
+            return None, "Name wat met __ begin word nie in die speelgrond toegelaat nie."
+        if isinstance(node, ast.Attribute):
+            if node.attr.startswith("__"):
+                return None, "Spesiale __ eienskappe word nie in die speelgrond toegelaat nie."
+            if isinstance(node.ctx, ast.Load) and node.attr not in allowed_attributes:
+                return None, f"Die metode of eienskap '.{node.attr}' word nie in die speelgrond toegelaat nie."
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id not in allowed_calls and node.func.id not in user_defined_calls:
+                return None, f"Die funksie '{node.func.id}()' is nog nie in die speelgrond toegelaat nie."
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name != "random":
+                    return None, f"Net 'import random' word in die speelgrond toegelaat."
+    return tree, None
+
+
+def run_python_playground(code, mock_input="Leerling"):
+    tree, error = validate_python_playground_code(code)
+    if error:
+        return "", error
+
+    output = io.StringIO()
+    safe_builtins = {
+        "print": print,
+        "input": lambda prompt="": mock_input,
+        "int": int,
+        "str": str,
+        "float": float,
+        "bool": bool,
+        "len": len,
+        "sum": sum,
+        "max": max,
+        "min": min,
+        "range": range,
+        "round": round,
+        "abs": abs,
+        "list": list,
+        "object": object,
+        "__build_class__": __build_class__,
+        "__import__": safe_python_import,
+    }
+    env = {"__builtins__": safe_builtins, "__name__": "kode_speelgrond", "random": SafeRandom()}
+    line_budget = {"count": 0, "max": 500}
+
+    def trace_lines(frame, event, arg):
+        if event == "line":
+            line_budget["count"] += 1
+            if line_budget["count"] > line_budget["max"]:
+                raise RuntimeError("Die speelgrond het gestop: te veel stappe. Kyk vir 'n oneindige lus.")
+        return trace_lines
+
+    try:
+        compiled = compile(tree, "kode_speelgrond", "exec")
+        with contextlib.redirect_stdout(output):
+            previous_trace = sys.gettrace()
+            sys.settrace(trace_lines)
+            try:
+                exec(compiled, env, env)
+            finally:
+                sys.settrace(previous_trace)
+    except Exception as exc:
+        return output.getvalue().strip(), f"{type(exc).__name__}: {exc}"
+    return output.getvalue().strip() or "Kode het geloop, maar niks is met print() gewys nie.", None
+
+
+def strip_java_comments(code):
+    code = re.sub(r"/\*.*?\*/", "", code, flags=re.S)
+    return re.sub(r"//.*", "", code)
+
+
+def extract_java_main_body(code):
+    main_match = re.search(r"public\s+static\s+void\s+main\s*\([^)]*\)\s*\{", code)
+    if not main_match:
+        return code
+    start = main_match.end()
+    depth = 1
+    for pos in range(start, len(code)):
+        if code[pos] == "{":
+            depth += 1
+        elif code[pos] == "}":
+            depth -= 1
+            if depth == 0:
+                return code[start:pos]
+    return code[start:]
+
+
+def split_java_top_level(source):
+    parts = []
+    start = 0
+    depth = 0
+    in_string = False
+    escape = False
+    paren_depth = 0
+    for pos, char in enumerate(source):
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "(":
+            paren_depth += 1
+        elif char == ")":
+            paren_depth -= 1
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                statement = source[start:pos + 1].strip()
+                if statement:
+                    parts.append(statement)
+                start = pos + 1
+        elif char == ";" and depth == 0 and paren_depth == 0:
+            statement = source[start:pos].strip()
+            if statement:
+                parts.append(statement)
+            start = pos + 1
+    tail = source[start:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
+
+
+def split_java_plus(expr):
+    parts = []
+    start = 0
+    in_string = False
+    escape = False
+    bracket_depth = 0
+    paren_depth = 0
+    for pos, char in enumerate(expr):
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "[":
+            bracket_depth += 1
+        elif char == "]":
+            bracket_depth -= 1
+        elif char == "(":
+            paren_depth += 1
+        elif char == ")":
+            paren_depth -= 1
+        elif char == "+" and bracket_depth == 0 and paren_depth == 0:
+            parts.append(expr[start:pos].strip())
+            start = pos + 1
+    parts.append(expr[start:].strip())
+    return parts
+
+
+def java_value_to_text(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def eval_java_atom(expr, env, mock_input):
+    expr = expr.strip()
+    if expr == "":
+        return ""
+    if expr in {"true", "false"}:
+        return expr == "true"
+    if expr.startswith('"') and expr.endswith('"'):
+        return bytes(expr[1:-1], "utf-8").decode("unicode_escape")
+    if expr.endswith(".length"):
+        name = expr[:-7].strip()
+        if name in env and isinstance(env[name], list):
+            return len(env[name])
+    index_match = re.fullmatch(r"([A-Za-z_]\w*)\s*\[\s*(.*?)\s*\]", expr)
+    if index_match:
+        name, index_expr = index_match.groups()
+        if name not in env or not isinstance(env[name], list):
+            raise ValueError(f"'{name}' is nie 'n lys/array nie.")
+        return env[name][int(eval_java_expr(index_expr, env, mock_input))]
+    if expr in env:
+        return env[expr]
+    if expr.endswith(".nextLine()"):
+        return mock_input
+    if expr.endswith(".nextInt()"):
+        return int(mock_input.strip())
+    if re.fullmatch(r"-?\d+", expr):
+        return int(expr)
+    if re.fullmatch(r"-?\d+\.\d+", expr):
+        return float(expr)
+    return eval_java_arithmetic(expr, env, mock_input)
+
+
+def eval_java_arithmetic(expr, env, mock_input):
+    transformed = expr.replace("&&", " and ").replace("||", " or ")
+    transformed = re.sub(r"\btrue\b", "True", transformed)
+    transformed = re.sub(r"\bfalse\b", "False", transformed)
+    for name, value in sorted(env.items(), key=lambda item: len(item[0]), reverse=True):
+        if isinstance(value, (int, float, bool)):
+            transformed = re.sub(rf"\b{re.escape(name)}\b", repr(value), transformed)
+    tree = ast.parse(transformed, mode="eval")
+    allowed_nodes = (
+        ast.Expression, ast.Constant, ast.BinOp, ast.UnaryOp, ast.BoolOp, ast.Compare,
+        ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.USub, ast.UAdd,
+        ast.And, ast.Or, ast.Not, ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+    )
+    for node in ast.walk(tree):
+        if not isinstance(node, allowed_nodes):
+            raise ValueError("Hierdie Java-uitdrukking is nog te gevorderd vir die speelgrond.")
+    return eval(compile(tree, "java_speelgrond", "eval"), {"__builtins__": {}}, {})
+
+
+def eval_java_expr(expr, env, mock_input):
+    parts = split_java_plus(expr)
+    values = [eval_java_atom(part, env, mock_input) for part in parts]
+    if any(isinstance(value, str) for value in values):
+        return "".join(java_value_to_text(value) for value in values)
+    total = values[0]
+    for value in values[1:]:
+        total += value
+    return total
+
+
+def parse_java_array(value_expr, env, mock_input):
+    inner = value_expr.strip()
+    inner = re.sub(r"^new\s+\w+\s*\[\]\s*", "", inner).strip()
+    if not (inner.startswith("{") and inner.endswith("}")):
+        raise ValueError("Gebruik asseblief 'n eenvoudige array soos {\"kat\", \"hond\"}.")
+    item_source = inner[1:-1]
+    items = []
+    current = []
+    in_string = False
+    escape = False
+    for char in item_source:
+        if in_string:
+            current.append(char)
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+            current.append(char)
+        elif char == ",":
+            items.append(eval_java_expr("".join(current).strip(), env, mock_input))
+            current = []
+        else:
+            current.append(char)
+    if "".join(current).strip():
+        items.append(eval_java_expr("".join(current).strip(), env, mock_input))
+    return items
+
+
+def run_java_lines(source, env, output, mock_input, budget):
+    for statement in split_java_top_level(source):
+        budget["count"] += 1
+        if budget["count"] > budget["max"]:
+            raise RuntimeError("Die Java-speelgrond het gestop: te veel stappe.")
+        statement = statement.strip()
+        if not statement or statement.startswith("import "):
+            continue
+        if re.fullmatch(r"(Scanner|Random)\s+\w+\s*=\s*new\s+\w+\s*\([^)]*\)", statement):
+            continue
+        print_match = re.fullmatch(r"System\.out\.(println|print)\s*\((.*)\)", statement, flags=re.S)
+        if print_match:
+            value = eval_java_expr(print_match.group(2), env, mock_input)
+            if print_match.group(1) == "println":
+                output.append(java_value_to_text(value))
+            elif output:
+                output[-1] += java_value_to_text(value)
+            else:
+                output.append(java_value_to_text(value))
+            continue
+        if_match = re.fullmatch(r"if\s*\((.*?)\)\s*\{(.*?)\}(?:\s*else\s*\{(.*?)\})?", statement, flags=re.S)
+        if if_match:
+            condition, if_body, else_body = if_match.groups()
+            run_java_lines(if_body if eval_java_expr(condition, env, mock_input) else (else_body or ""), env, output, mock_input, budget)
+            continue
+        for_match = re.fullmatch(r"for\s*\(\s*int\s+(\w+)\s*=\s*(.*?);\s*\1\s*([<>=!]+)\s*(.*?);\s*\1\s*(\+\+|--)\s*\)\s*\{(.*?)\}", statement, flags=re.S)
+        if for_match:
+            name, start_expr, operator, end_expr, step, body = for_match.groups()
+            env[name] = int(eval_java_expr(start_expr, env, mock_input))
+            iterations = 0
+            while eval_java_expr(f"{name} {operator} {end_expr}", env, mock_input):
+                iterations += 1
+                if iterations > 100:
+                    raise RuntimeError("Hierdie for-lus loop te lank vir die speelgrond.")
+                run_java_lines(body, env, output, mock_input, budget)
+                env[name] += 1 if step == "++" else -1
+            continue
+        declaration_match = re.fullmatch(r"(String|int|double|boolean)(\[\])?\s+(\w+)\s*=\s*(.*)", statement, flags=re.S)
+        if declaration_match:
+            value_type, is_array, name, value_expr = declaration_match.groups()
+            env[name] = parse_java_array(value_expr, env, mock_input) if is_array else eval_java_expr(value_expr, env, mock_input)
+            if value_type == "int" and not is_array:
+                env[name] = int(env[name])
+            elif value_type == "double" and not is_array:
+                env[name] = float(env[name])
+            elif value_type == "boolean" and not is_array:
+                env[name] = bool(env[name])
+            else:
+                env[name] = env[name]
+            continue
+        assignment_match = re.fullmatch(r"(\w+)\s*(=|\+=)\s*(.*)", statement, flags=re.S)
+        if assignment_match:
+            name, operator, value_expr = assignment_match.groups()
+            value = eval_java_expr(value_expr, env, mock_input)
+            env[name] = env.get(name, 0) + value if operator == "+=" else value
+            continue
+        inc_match = re.fullmatch(r"(\w+)(\+\+|--)", statement)
+        if inc_match:
+            name, step = inc_match.groups()
+            env[name] = env.get(name, 0) + (1 if step == "++" else -1)
+            continue
+        raise ValueError(f"Ek kan hierdie Java-lyn nog nie uitvoer nie: {statement[:80]}")
+
+
+def run_java_playground(code, mock_input="Leerling"):
+    risky_terms = (
+        "Runtime", "ProcessBuilder", "System.exit", "File", "Files", "Socket",
+        "exec", "ClassLoader", "reflection", "Thread", "while",
+    )
+    if any(term in code for term in risky_terms):
+        return "", "Hierdie Java-deel is te gevorderd of nie veilig vir die speelgrond nie."
+    source = extract_java_main_body(strip_java_comments(code))
+    env = {}
+    output = []
+    try:
+        run_java_lines(source, env, output, mock_input, {"count": 0, "max": 500})
+    except Exception as exc:
+        return "\n".join(output).strip(), f"Java-fout: {exc}"
+    return "\n".join(output).strip() or "Kode het geloop, maar niks is met System.out.println() gewys nie.", None
+
+
+def render_code_playground(module, index):
+    if not module.get("python_code") and not module.get("java_code"):
+        return
+    st.markdown("### Kode Speelgrond")
+    st.caption("Kies 'n taal, tik jou eie kode en toets dit. Die Java-kant is 'n beginner-emulator vir die lesvoorbeelde.")
+    module_slug = "".join(ch.lower() if ch.isalnum() else "_" for ch in module["title"]).strip("_")
+    if module.get("activity"):
+        st.markdown(
+            f"""
+            <div class="practice-guide">
+                <h3>Mini-uitdaging</h3>
+                <p>{html.escape(module["activity"])}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    language_options = []
+    if module.get("python_code"):
+        language_options.append("Python")
+    if module.get("java_code"):
+        language_options.append("Java")
+    language = st.radio(
+        "Kies taal vir speelgrond",
+        language_options,
+        horizontal=True,
+        key=f"coding_playground_language_{index}_{module_slug}",
+    )
+    language_key = language.lower()
+    starter_key = f"coding_playground_starter_{index}_{module_slug}_{language_key}"
+    code_key = f"coding_playground_code_{index}_{module_slug}_{language_key}"
+    starter_code = module.get(f"{language_key}_code", "")
+    if code_key not in st.session_state:
+        st.session_state[starter_key] = starter_code
+        st.session_state[code_key] = ""
+    elif st.session_state.get(starter_key) != starter_code:
+        st.session_state[starter_key] = starter_code
+    mock_input = st.text_input(
+        "Toets-invoer vir input() / Scanner",
+        value="Mia",
+        key=f"coding_playground_input_{index}_{module_slug}",
+        help="As jou kode input() of Scanner gebruik, gee die speelgrond hierdie waarde terug.",
+    )
+    code = st.text_area(
+        f"Skryf jou {language}-kode hier",
+        key=code_key,
+        height=190,
+    )
+    col1, col2 = st.columns([1, 1])
+    run_clicked = col1.button("Run kode", type="primary", use_container_width=True, key=f"coding_playground_run_{index}_{language_key}")
+    col2.button(
+        "Maak leeg",
+        use_container_width=True,
+        key=f"coding_playground_reset_{index}_{language_key}",
+        on_click=lambda key=code_key: st.session_state.update({key: ""}),
+    )
+    if run_clicked:
+        if language == "Java":
+            output, error = run_java_playground(code, mock_input=mock_input)
+        else:
+            output, error = run_python_playground(code, mock_input=mock_input)
+        if error:
+            st.error(error)
+        if output:
+            st.code(output, language="text")
+
+
 def coding_page():
     user = st.session_state.user
     user_id = user["id"]
@@ -2852,17 +3954,21 @@ def coding_page():
     progress = get_progress(user_id, "Kodering", "Python & Java")
     modules = coding_modules_for_grade(grade)
 
+    intro_text = (
+        "Werk deur 'n 20-module Python- en Java-kursus met kort lesse, kodevoorbeelde, "
+        "Kode-App-raaisels en mini-uitdagings. Leer teen jou eie pas en bou selfvertroue module vir module."
+    )
     st.markdown(
-        """
+        f"""
         <div class="coding-hero">
             <h2>Kodering Akademie</h2>
-            <p>Begin met maklike kode-denke: robotmissies, patrone, keuses en speletjie-logika. Python en Java kom later wanneer die idees klaar maklik voel.</p>
+            <p>{html.escape(intro_text)}</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
     col1, col2, col3 = st.columns(3)
-    col1.metric("Graad", grade)
+    col1.metric("Kursusmodules", len(modules))
     col2.metric("Kodering telling", progress["score"])
     col3.metric("Vlak", progress["level"])
 
@@ -2873,12 +3979,27 @@ def coding_page():
     level_floor = (module_index * 3) + 1
     lesson_level = min(10, max(level_floor, int(progress["level"])))
 
+    st.progress((module_index + 1) / len(modules))
+    st.caption(f"Module {module_index + 1} van {len(modules)}. Werk rustig deur die les, raaisel en mini-uitdaging.")
+
     render_coding_module(module, module_index + 1)
 
     st.markdown("### Speel-speel voorspelling")
-    prediction = st.radio(module["challenge"], module["options"], key=f"coding_prediction_{grade}_{module_index}")
+    prediction_options = stable_shuffled_options(
+        module["options"],
+        f"prediction_{module_index}_{module['title']}",
+        module["answer"],
+    )
+    prediction = st.radio(
+        module["challenge"],
+        prediction_options,
+        index=None,
+        key=f"coding_prediction_{grade}_{module_index}",
+    )
     if st.button("Toets my voorspelling", use_container_width=True):
-        if normalize_answer(prediction) == normalize_answer(module["answer"]):
+        if prediction is None:
+            st.warning("Kies eers 'n antwoord, dan toets ons jou voorspelling.")
+        elif normalize_answer(prediction) == normalize_answer(module["answer"]):
             st.success("Mooi. Jy het die kode reg gelees.")
         else:
             st.warning(f"Naby. Die beste antwoord is: {module['answer']}")
@@ -2894,9 +4015,15 @@ def coding_page():
         answers = {}
         for idx, question in enumerate(quiz_questions, start=1):
             st.markdown(f"**Vraag {idx}:** {question['prompt']}")
+            shuffled_options = stable_shuffled_options(
+                question["options"],
+                question["id"],
+                question["answer"],
+            )
             answers[question["id"]] = st.radio(
                 "Kies jou antwoord",
-                question["options"],
+                shuffled_options,
+                index=None,
                 key=f"coding_answer_{question['id']}",
                 disabled=quiz_completed,
             )
@@ -2909,6 +4036,10 @@ def coding_page():
             st.stop()
         correct_count = 0
         total_points = 0
+        unanswered = [question for question in quiz_questions if answers.get(question["id"]) is None]
+        if unanswered:
+            st.warning("Beantwoord asseblief al die quiz-vrae voordat jy merk.")
+            st.stop()
         for question in quiz_questions:
             if question["id"] in completed_ids:
                 continue
@@ -3073,7 +4204,7 @@ def module_practice(subject, topic):
             """
             <div class="practice-guide">
                 <h3>Vat jou tyd</h3>
-                <p>Lees die vraag mooi, tik net jou antwoord in, en druk Dien In. As jy verkeerd is, wys die app vir jou 'n wenk.</p>
+                <p>Lees die vraag mooi, tik jou antwoord in, en druk Enter of Dien In. As jy verkeerd is, wys die app vir jou 'n wenk.</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -3081,12 +4212,13 @@ def module_practice(subject, topic):
 
     st.markdown(f'<div class="question-box"><h3>{question["prompt"]}</h3></div>', unsafe_allow_html=True)
 
-    with st.form(key=f"answer_form_{subject}_{topic}_{question['id']}"):
+    with st.form(key=f"answer_form_{subject}_{topic}_{question['id']}", enter_to_submit=True):
         if question.get("input_mode") == "number":
             answer_value = st.number_input("Jou antwoord", value=None, step=1, format="%d")
             answer = "" if answer_value is None else str(int(answer_value))
         else:
             answer = st.text_input("Jou antwoord")
+        st.caption("Wenk: Druk Enter op jou sleutelbord of selfoon, of gebruik die Dien In-knoppie.")
         submitted = st.form_submit_button("Dien In", use_container_width=True)
 
     if submitted:
