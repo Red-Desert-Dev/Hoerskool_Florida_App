@@ -18,7 +18,6 @@ from urllib.parse import quote_plus
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 
 DB_FILE = "school_app.db"
@@ -3900,19 +3899,19 @@ def render_robotics_videos():
         with col:
             st.markdown(f"**{video['title']}**")
             st.caption(video["caption"])
-            components.html(
+            st.markdown(
                 f"""
                 <iframe
                     class="robotics-video"
                     src="{src}"
                     title="{html.escape(video['title'])}"
-                    style="aspect-ratio:16/9;border:1px solid rgba(242,207,74,0.30);border-radius:8px;width:100%;height:100%;"
+                    style="aspect-ratio:16/9;border:1px solid rgba(242,207,74,0.30);border-radius:8px;width:100%;min-height:190px;"
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowfullscreen>
                 </iframe>
                 """,
-                height=230,
+                unsafe_allow_html=True,
             )
 
 
