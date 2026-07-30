@@ -1995,8 +1995,20 @@ def is_early_reading_question(question):
     return bool(question.get("passage")) and int(question.get("level", 1)) <= READING_UNTIMED_LEVELS
 
 
+def grade_uses_timers(grade):
+    return int(grade) > 5
+
+
+def question_uses_answer_timer(question):
+    return grade_uses_timers(question.get("grade", 6)) and not is_early_reading_question(question)
+
+
 def should_hide_passage_after_preview(question):
-    return bool(question.get("passage")) and int(question.get("level", 1)) > READING_UNTIMED_LEVELS
+    return (
+        grade_uses_timers(question.get("grade", 6))
+        and bool(question.get("passage"))
+        and int(question.get("level", 1)) > READING_UNTIMED_LEVELS
+    )
 
 
 def start_reading_preview_if_needed(user_id, subject, topic, question):
@@ -2026,10 +2038,11 @@ def start_question_if_needed(user_id, subject, topic, grade, level):
     question = choose_question(user_id, subject, topic, grade, level)
     if question is None:
         return None
+    hide_for_preview = should_hide_passage_after_preview(question)
     active = {
         "question": question,
-        "started_at": None if should_hide_passage_after_preview(question) else time.time(),
-        "deadline": None if (should_hide_passage_after_preview(question) or is_early_reading_question(question)) else time.time() + float(question["time_limit"]),
+        "started_at": None if hide_for_preview else time.time(),
+        "deadline": None if (hide_for_preview or not question_uses_answer_timer(question)) else time.time() + float(question["time_limit"]),
     }
     st.session_state[key] = active
     return active
@@ -2037,17 +2050,18 @@ def start_question_if_needed(user_id, subject, topic, grade, level):
 
 def restart_active_question(user_id, subject, topic, question):
     key = f"active_question_{user_id}_{subject}_{topic}"
+    hide_for_preview = should_hide_passage_after_preview(question)
     st.session_state[key] = {
         "question": question,
-        "started_at": None if should_hide_passage_after_preview(question) else time.time(),
-        "deadline": None if (should_hide_passage_after_preview(question) or is_early_reading_question(question)) else time.time() + float(question["time_limit"]),
+        "started_at": None if hide_for_preview else time.time(),
+        "deadline": None if (hide_for_preview or not question_uses_answer_timer(question)) else time.time() + float(question["time_limit"]),
     }
 
 
 def start_answer_phase(user_id, subject, topic, active):
     key = f"active_question_{user_id}_{subject}_{topic}"
     active["started_at"] = time.time()
-    active["deadline"] = None if is_early_reading_question(active["question"]) else time.time() + float(active["question"]["time_limit"])
+    active["deadline"] = None if not question_uses_answer_timer(active["question"]) else time.time() + float(active["question"]["time_limit"])
     st.session_state[key] = active
     clear_reading_preview(user_id, subject, topic, active["question"])
 
