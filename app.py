@@ -14,7 +14,6 @@ import sqlite3
 import sys
 import time
 from datetime import datetime, timedelta
-from urllib.parse import quote_plus
 
 import pandas as pd
 import streamlit as st
@@ -3709,25 +3708,6 @@ def completed_coding_quiz_ids(user_id, quiz_questions):
     return {row["question_id"] for row in rows}
 
 
-ROBOTICS_VIDEO_SEARCHES = [
-    {
-        "title": "Wat Is Robotika?",
-        "query": "robotics for kids what is a robot",
-        "caption": "Kort, kindervriendelike verduidelikings oor wat robotte doen.",
-    },
-    {
-        "title": "Bou 'n Eenvoudige Robot",
-        "query": "simple robot building for kids wheels motors battery",
-        "caption": "Idees vir wiele, motors, batterye en veilige bouwerk.",
-    },
-    {
-        "title": "Rigtings En Bewegings",
-        "query": "robot directions left right forward backward coding for kids",
-        "caption": "Video's wat beweging en eenvoudige instruksies wys.",
-    },
-]
-
-
 def robotics_modules_for_grade(grade):
     foundation_modules = [
         {
@@ -3890,31 +3870,6 @@ def render_robotics_simulator(module, module_index, grade):
         st.info(f"Volgende stap: {step_labels[target_moves[len(current_steps)]]}")
 
 
-def render_robotics_videos():
-    st.markdown("### Ingeboude Robotika Video's")
-    cols = st.columns(3)
-    for col, video in zip(cols, ROBOTICS_VIDEO_SEARCHES):
-        query = quote_plus(video["query"])
-        src = f"https://www.youtube-nocookie.com/embed?listType=search&list={query}"
-        with col:
-            st.markdown(f"**{video['title']}**")
-            st.caption(video["caption"])
-            st.markdown(
-                f"""
-                <iframe
-                    class="robotics-video"
-                    src="{src}"
-                    title="{html.escape(video['title'])}"
-                    style="aspect-ratio:16/9;border:1px solid rgba(242,207,74,0.30);border-radius:8px;width:100%;min-height:190px;"
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowfullscreen>
-                </iframe>
-                """,
-                unsafe_allow_html=True,
-            )
-
-
 def robotics_page():
     user = st.session_state.user
     grade = int(user.get("grade", 6))
@@ -3983,7 +3938,6 @@ def robotics_page():
     st.markdown(f'<div class="code-card">{html.escape(module["build"])}</div>', unsafe_allow_html=True)
     st.markdown("**Onderdele vir hierdie module:** " + ", ".join(module["parts"]))
     render_robotics_simulator(module, module_index, grade)
-    render_robotics_videos()
 
 
 class SafeRandom:
