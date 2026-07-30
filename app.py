@@ -14,9 +14,11 @@ import sqlite3
 import sys
 import time
 from datetime import datetime, timedelta
+from urllib.parse import quote_plus
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 DB_FILE = "school_app.db"
@@ -455,6 +457,62 @@ st.markdown(
         display: block;
         font-size: 0.98rem;
         line-height: 1.48;
+    }
+
+    .robotics-grid {
+        background:
+            linear-gradient(135deg, rgba(242,207,74,0.12), rgba(67,163,255,0.12)),
+            #082f1d;
+        border: 1px solid rgba(242, 207, 74, 0.34);
+        border-radius: 8px;
+        display: grid;
+        gap: 7px;
+        grid-template-columns: repeat(5, minmax(44px, 1fr));
+        margin: 14px 0;
+        max-width: 520px;
+        padding: 10px;
+    }
+
+    .robot-cell {
+        align-items: center;
+        aspect-ratio: 1;
+        background: rgba(15, 87, 52, 0.68);
+        border: 1px solid rgba(242, 207, 74, 0.18);
+        border-radius: 7px;
+        display: flex;
+        font-size: clamp(1.4rem, 6vw, 2.4rem);
+        justify-content: center;
+        min-width: 0;
+    }
+
+    .robot-cell.robot-active {
+        background: rgba(242, 207, 74, 0.22);
+        border-color: rgba(242, 207, 74, 0.74);
+        box-shadow: 0 0 24px rgba(242,207,74,0.20);
+    }
+
+    .robot-cell.robot-target {
+        background: rgba(199, 37, 46, 0.18);
+        border-color: rgba(199, 37, 46, 0.54);
+    }
+
+    .robotics-step {
+        background: rgba(242, 207, 74, 0.16);
+        border: 1px solid rgba(242, 207, 74, 0.34);
+        border-radius: 999px;
+        color: var(--school-yellow);
+        display: inline-block;
+        font-weight: 800;
+        margin: 4px 5px 4px 0;
+        padding: 6px 10px;
+    }
+
+    .robotics-video {
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(242, 207, 74, 0.30);
+        border-radius: 8px;
+        overflow: hidden;
+        width: 100%;
     }
 
     .small-muted { color: var(--school-muted); font-size: 14px; }
@@ -3652,6 +3710,283 @@ def completed_coding_quiz_ids(user_id, quiz_questions):
     return {row["question_id"] for row in rows}
 
 
+ROBOTICS_VIDEO_SEARCHES = [
+    {
+        "title": "Wat Is Robotika?",
+        "query": "robotics for kids what is a robot",
+        "caption": "Kort, kindervriendelike verduidelikings oor wat robotte doen.",
+    },
+    {
+        "title": "Bou 'n Eenvoudige Robot",
+        "query": "simple robot building for kids wheels motors battery",
+        "caption": "Idees vir wiele, motors, batterye en veilige bouwerk.",
+    },
+    {
+        "title": "Rigtings En Bewegings",
+        "query": "robot directions left right forward backward coding for kids",
+        "caption": "Video's wat beweging en eenvoudige instruksies wys.",
+    },
+]
+
+
+def robotics_modules_for_grade(grade):
+    foundation_modules = [
+        {
+            "title": "Robot Rigtings",
+            "goal": "Laat 'n robot presiese rigtings volg.",
+            "parts": ["Robotbasis", "Rooster of vloerkaart", "Rigtingkaarte"],
+            "skills": [
+                ("Links En Regs", "Leer dat 'n robot net doen wat jy vir hom se, in die volgorde wat jy dit gee."),
+                ("Volgorde", "Sit stappe soos Links, Regs, Regs, Onder in die regte ry."),
+                ("Toets", "Druk die knoppies en kyk of die robot op die teiken eindig."),
+            ],
+            "mission": ["links", "regs", "regs", "onder"],
+            "build": "Teken 'n vloerkaart op papier en gebruik 'n klein speelgoedrobot of blokkie om die roete fisies na te bou.",
+        },
+        {
+            "title": "Wiele En Assies",
+            "goal": "Verstaan hoe wiele, assies en balans 'n robot laat beweeg.",
+            "parts": ["2 wiele", "1 assie", "Kartonbasis", "Kleefband"],
+            "skills": [
+                ("Assie", "Die assie hou die wiele reguit sodat die robot glad kan rol."),
+                ("Balans", "As die gewig skeef is, trek die robot na een kant."),
+                ("Waarneming", "Kyk wat verander wanneer jy die wiele groter of kleiner maak."),
+            ],
+            "mission": ["regs", "regs", "onder", "links"],
+            "build": "Bou 'n kartonkarretjie en toets of dit reguit rol voordat enige motor bygevoeg word.",
+        },
+        {
+            "title": "Motor En Energie",
+            "goal": "Koppel beweging aan energie op 'n eenvoudige, veilige manier.",
+            "parts": ["Klein motor", "Batteryhouer", "Skakelaar", "Draad"],
+            "skills": [
+                ("Energie", "Die battery gee krag aan die motor."),
+                ("Skakelaar", "'n Skakelaar maak die stroombaan oop of toe."),
+                ("Veiligheid", "Gebruik klein batterye en vra altyd 'n volwassene om te help met bouwerk."),
+            ],
+            "mission": ["onder", "regs", "regs", "bo"],
+            "build": "Ontwerp eers die stroombaan op papier: battery na skakelaar, skakelaar na motor, motor terug na battery.",
+        },
+    ]
+    advanced_modules = [
+        {
+            "title": "Chassis Bou",
+            "goal": "Ontwerp 'n sterk robotraam wat nie maklik buig nie.",
+            "parts": ["Karton of LEGO", "Wiele", "Assies", "Rekkies"],
+            "skills": [
+                ("Raam", "Die chassis is die robot se lyf. Dit hou alles bymekaar."),
+                ("Sterkte", "Driehoeke en kort verbindings maak 'n raam stewiger."),
+                ("Aanpas", "Meet, toets, verander en toets weer."),
+            ],
+            "mission": ["links", "links", "onder", "regs", "regs"],
+            "build": "Bou twee chassis-idees en vergelyk watter een reguiter beweeg.",
+        },
+        {
+            "title": "Sensors Speur",
+            "goal": "Leer hoe 'n robot lig, afstand of aanraking kan waarneem.",
+            "parts": ["Lig- of afstandsensor", "LED", "Klein beheerbord", "Draad"],
+            "skills": [
+                ("Inset", "Sensors gee inligting vir die robot."),
+                ("Besluit", "Die robot kan besluit: as iets naby is, stop of draai."),
+                ("Kalibreer", "Toets die sensor naby en ver en kies 'n goeie grenswaarde."),
+            ],
+            "mission": ["regs", "onder", "onder", "links"],
+            "build": "Maak 'n toetsplan: wat moet die robot doen as daar 'n hindernis voor hom is?",
+        },
+        {
+            "title": "Robot Missie",
+            "goal": "Kombineer bouwerk, beweging en toetsing in een mini-uitdaging.",
+            "parts": ["Robotbasis", "Motor", "Sensor", "Missiekaart"],
+            "skills": [
+                ("Beplan", "Skryf die roete voor jy druk of bou."),
+                ("Debug", "As die robot verkeerd eindig, soek die eerste stap wat verkeerd geloop het."),
+                ("Verbeter", "Maak een verandering op 'n slag sodat jy weet wat gewerk het."),
+            ],
+            "mission": ["bo", "regs", "regs", "onder", "onder"],
+            "build": "Bou 'n klein afleweringsmissie: die robot moet van beginpunt na teiken beweeg sonder om teen mure te raak.",
+        },
+    ]
+    modules = foundation_modules[:]
+    if int(grade) >= 5:
+        modules.extend(advanced_modules)
+    return modules
+
+
+def robot_position_after_moves(start, moves):
+    x, y = start
+    for move in moves:
+        if move == "links":
+            x -= 1
+        elif move == "regs":
+            x += 1
+        elif move == "bo":
+            y -= 1
+        elif move == "onder":
+            y += 1
+        x = min(4, max(0, x))
+        y = min(4, max(0, y))
+    return x, y
+
+
+def render_robot_grid(position, target_position):
+    cells = []
+    for y in range(5):
+        for x in range(5):
+            classes = ["robot-cell"]
+            content = ""
+            if (x, y) == target_position:
+                classes.append("robot-target")
+                content = "★"
+            if (x, y) == position:
+                classes.append("robot-active")
+                content = "🤖"
+            cells.append(f'<div class="{" ".join(classes)}">{content}</div>')
+    return f'<div class="robotics-grid">{"".join(cells)}</div>'
+
+
+def render_robotics_simulator(module, module_index, grade):
+    start = (2, 2)
+    target_moves = module["mission"]
+    state_key = f"robotics_steps_{grade}_{module_index}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = []
+
+    steps = list(st.session_state[state_key])
+    position = robot_position_after_moves(start, steps)
+    target_position = robot_position_after_moves(start, target_moves)
+    step_labels = {"links": "Links", "regs": "Regs", "bo": "Op", "onder": "Af"}
+    st.markdown("### Robot Beweeg-Missie")
+    st.markdown(
+        " ".join(f'<span class="robotics-step">{step_labels[step]}</span>' for step in target_moves),
+        unsafe_allow_html=True,
+    )
+    st.markdown(render_robot_grid(position, target_position), unsafe_allow_html=True)
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    pressed = None
+    if col1.button("Links", key=f"robot_left_{grade}_{module_index}", use_container_width=True):
+        pressed = "links"
+    if col2.button("Regs", key=f"robot_right_{grade}_{module_index}", use_container_width=True):
+        pressed = "regs"
+    if col3.button("Op", key=f"robot_up_{grade}_{module_index}", use_container_width=True):
+        pressed = "bo"
+    if col4.button("Af", key=f"robot_down_{grade}_{module_index}", use_container_width=True):
+        pressed = "onder"
+    if col5.button("Reset", key=f"robot_reset_{grade}_{module_index}", use_container_width=True):
+        st.session_state[state_key] = []
+        st.rerun()
+
+    if pressed:
+        st.session_state[state_key] = steps + [pressed]
+        st.rerun()
+
+    current_steps = list(st.session_state[state_key])
+    if current_steps:
+        st.caption("Jou roete: " + " → ".join(step_labels[step] for step in current_steps))
+    if current_steps == target_moves:
+        st.success("Missie voltooi. Jou robot het die instruksies perfek gevolg.")
+    elif current_steps and target_moves[:len(current_steps)] != current_steps:
+        st.warning("Daardie roete is amper daar, maar een stap is uit plek. Druk Reset en probeer weer.")
+    elif len(current_steps) < len(target_moves):
+        st.info(f"Volgende stap: {step_labels[target_moves[len(current_steps)]]}")
+
+
+def render_robotics_videos():
+    st.markdown("### Ingeboude Robotika Video's")
+    cols = st.columns(3)
+    for col, video in zip(cols, ROBOTICS_VIDEO_SEARCHES):
+        query = quote_plus(video["query"])
+        src = f"https://www.youtube-nocookie.com/embed?listType=search&list={query}"
+        with col:
+            st.markdown(f"**{video['title']}**")
+            st.caption(video["caption"])
+            components.html(
+                f"""
+                <iframe
+                    class="robotics-video"
+                    src="{src}"
+                    title="{html.escape(video['title'])}"
+                    style="aspect-ratio:16/9;border:1px solid rgba(242,207,74,0.30);border-radius:8px;width:100%;height:100%;"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen>
+                </iframe>
+                """,
+                height=230,
+            )
+
+
+def robotics_page():
+    user = st.session_state.user
+    grade = int(user.get("grade", 6))
+    if grade < 3 or grade > 7:
+        st.markdown(
+            """
+            <div class="coding-hero">
+                <h2>Robotika Akademie</h2>
+                <p>Robotika Akademie is vir Graad 3 tot Graad 7 beskikbaar.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.info("Kies asseblief 'n ander afdeling in die kieslys.")
+        return
+
+    modules = robotics_modules_for_grade(grade)
+    st.markdown(
+        f"""
+        <div class="coding-hero">
+            <h2>Robotika Akademie</h2>
+            <p>Bou regte robotika-vaardighede deur beweging, dele, sensors en toetsing stap vir stap te oefen. Hierdie pad is gemaak vir Graad {grade}.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Robotika Modules", len(modules))
+    col2.metric("Missies", "Interaktief")
+    col3.metric("Graad", grade)
+
+    module_number = st.slider(
+        "Kies Jou Robotika Module",
+        min_value=1,
+        max_value=len(modules),
+        value=int(st.session_state.get("robotics_module_number", 1)),
+        step=1,
+        key="robotics_module_number",
+    )
+    module_index = int(module_number) - 1
+    module = modules[module_index]
+    st.progress((module_index + 1) / len(modules))
+    st.markdown(
+        f"""
+        <div class="coding-hero">
+            <h2>Module {module_index + 1}: {html.escape(module['title'])}</h2>
+            <p>{html.escape(module['goal'])}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(3)
+    for col, (heading, detail) in zip(cols, module["skills"]):
+        col.markdown(
+            f"""
+            <div class="mission-card">
+                <strong>{html.escape(heading)}</strong>
+                <span>{html.escape(detail)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("### Bou-Vaardigheid")
+    st.markdown(f'<div class="code-card">{html.escape(module["build"])}</div>', unsafe_allow_html=True)
+    st.markdown("**Onderdele vir hierdie module:** " + ", ".join(module["parts"]))
+    render_robotics_simulator(module, module_index, grade)
+    render_robotics_videos()
+
+
 class SafeRandom:
     def randint(self, start, end):
         return random.randint(int(start), int(end))
@@ -4267,7 +4602,12 @@ def front_page():
     if not progress_df.empty:
         total_attempts = int(progress_df["attempt_count"].sum()) if "attempt_count" in progress_df else 0
         if total_attempts == 0:
-            subject_links = '<span class="subject-pill">Kodering Akademie</span>' + "".join(f'<span class="subject-pill">{label}</span>' for label in CATEGORIES.keys())
+            academy_links = []
+            if 3 <= student_grade <= 7:
+                academy_links.append("Robotika Akademie")
+            if student_grade >= 8:
+                academy_links.append("Kodering Akademie")
+            subject_links = "".join(f'<span class="subject-pill">{label}</span>' for label in [*academy_links, *CATEGORIES.keys()])
             st.markdown(
                 f"""
                 <div class="empty-state">
@@ -4893,6 +5233,8 @@ def main():
         )
         student_grade = int(st.session_state.user.get("grade", 6))
         navigation_options = ["Voorblad (Stats & Leaderboard)"]
+        if 3 <= student_grade <= 7:
+            navigation_options.append("Robotika Akademie")
         if student_grade >= 8:
             navigation_options.append("Kodering Akademie")
         navigation_options.extend(["Mini Game - Tetris", *CATEGORIES.keys()])
@@ -4909,6 +5251,8 @@ def main():
 
     if category == "Voorblad (Stats & Leaderboard)":
         front_page()
+    elif category == "Robotika Akademie":
+        robotics_page()
     elif category == "Kodering Akademie":
         coding_page()
     elif category == "Mini Game - Tetris":
