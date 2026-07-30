@@ -4096,6 +4096,18 @@ def coding_page():
     user = st.session_state.user
     user_id = user["id"]
     grade = int(user.get("grade", 6))
+    if grade <= 7:
+        st.markdown(
+            """
+            <div class="coding-hero">
+                <h2>Kodering Akademie</h2>
+                <p>Kodering Akademie is vir eers beskikbaar vanaf Graad 8 tot Graad 12. Ons sal dit later oopmaak vir jonger grade.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.info("Kies intussen Wiskunde, Afrikaans of Engels in die kieslys om verder te oefen.")
+        return
     progress = get_progress(user_id, "Kodering", "Python & Java")
     modules = coding_modules_for_grade(grade)
 
@@ -4865,9 +4877,16 @@ def main():
             f"{avatar_img_html(st.session_state.user['avatar'])} **{st.session_state.user['name']}**",
             unsafe_allow_html=True,
         )
+        student_grade = int(st.session_state.user.get("grade", 6))
+        navigation_options = ["Voorblad (Stats & Leaderboard)"]
+        if student_grade >= 8:
+            navigation_options.append("Kodering Akademie")
+        navigation_options.extend(["Mini Game - Tetris", *CATEGORIES.keys()])
+        if st.session_state.get("main_navigation") not in navigation_options:
+            st.session_state.main_navigation = navigation_options[0]
         category = tap_choice(
             "Kies Kategorie",
-            ["Voorblad (Stats & Leaderboard)", "Kodering Akademie", "Mini Game - Tetris", *CATEGORIES.keys()],
+            navigation_options,
             key="main_navigation",
         )
         st.markdown("---")
