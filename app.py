@@ -372,6 +372,15 @@ st.markdown(
         font-size: 1.55rem;
     }
 
+    .question-box-foundation {
+        padding: 30px;
+    }
+
+    .question-box-foundation h3 {
+        font-size: clamp(2rem, 5.5vw, 3rem);
+        line-height: 1.2;
+    }
+
     .reading-pane {
         background: #176b65;
         border-radius: 8px;
@@ -4367,7 +4376,11 @@ def module_practice(subject, topic):
             unsafe_allow_html=True,
         )
 
-    st.markdown(f'<div class="question-box"><h3>{question["prompt"]}</h3></div>', unsafe_allow_html=True)
+    question_box_class = "question-box question-box-foundation" if int(student_grade) <= 4 else "question-box"
+    st.markdown(
+        f'<div class="{question_box_class}"><h3>{html.escape(question["prompt"])}</h3></div>',
+        unsafe_allow_html=True,
+    )
 
     with st.form(key=f"answer_form_{subject}_{topic}_{question['id']}", enter_to_submit=True):
         if question.get("input_mode") == "number":
