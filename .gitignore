@@ -8,6 +8,7 @@ db.json
 *.db
 *.sqlite
 *.sqlite3
+hoerskool_florida_backup_*.json
 
 *.log
 .streamlit/secrets.toml

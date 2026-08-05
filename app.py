@@ -2681,6 +2681,62 @@ def rows_to_dataframe(rows):
     return pd.DataFrame([dict(row) for row in rows])
 
 
+BACKUP_TABLES = [
+    "users",
+    "credentials",
+    "subject_progress",
+    "attempts",
+    "game_scores",
+    "sponsor_ads",
+]
+
+
+def export_database_backup():
+    backup = {"created_at": now_iso(), "tables": {}}
+    with get_conn() as conn:
+        for table in BACKUP_TABLES:
+            exists = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+                (table,),
+            ).fetchone()
+            if exists:
+                rows = conn.execute(f"SELECT * FROM {table}").fetchall()
+                backup["tables"][table] = [dict(row) for row in rows]
+            else:
+                backup["tables"][table] = []
+    return json.dumps(backup, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def import_database_backup(uploaded_file):
+    payload = json.loads(uploaded_file.getvalue().decode("utf-8"))
+    tables = payload.get("tables", {})
+    with get_conn() as conn:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        try:
+            for table in reversed(BACKUP_TABLES):
+                if table in tables:
+                    conn.execute(f"DELETE FROM {table}")
+            for table in BACKUP_TABLES:
+                rows = tables.get(table, [])
+                if not rows:
+                    continue
+                columns = [row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+                for row in rows:
+                    insert_columns = [column for column in columns if column in row]
+                    placeholders = ", ".join("?" for _ in insert_columns)
+                    column_sql = ", ".join(insert_columns)
+                    values = [row[column] for column in insert_columns]
+                    conn.execute(
+                        f"INSERT OR REPLACE INTO {table} ({column_sql}) VALUES ({placeholders})",
+                        values,
+                    )
+            conn.execute("PRAGMA foreign_keys = ON")
+        except Exception:
+            conn.rollback()
+            conn.execute("PRAGMA foreign_keys = ON")
+            raise
+
+
 def today_bounds():
     start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     return start, start + timedelta(days=1)
@@ -5033,6 +5089,34 @@ def module_practice(subject, topic):
 
 def admin_dashboard():
     st.title("Onderwyser Dashboard")
+    with st.expander("Databasis Rugsteun En Herstel", expanded=False):
+        st.warning(
+            "Streamlit Cloud se ingeboude SQLite-lêer is nie permanente databasis-storage nie. "
+            "Gebruik hierdie rugsteun voor 'Clear cache and reboot' of skuif later na 'n eksterne databasis."
+        )
+        st.download_button(
+            "Laai volledige rugsteun af",
+            data=export_database_backup(),
+            file_name=f"hoerskool_florida_backup_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+        backup_file = st.file_uploader("Herstel vanaf rugsteun JSON", type=["json"], key="database_restore_file")
+        confirm_restore = st.checkbox("Ek verstaan hierdie aksie vervang die huidige Cloud-data.", key="confirm_database_restore")
+        if st.button("Herstel databasis", type="primary", use_container_width=True):
+            if backup_file is None:
+                st.error("Laai eers 'n rugsteun JSON op.")
+            elif not confirm_restore:
+                st.error("Merk asseblief die bevestiging voordat jy herstel.")
+            else:
+                try:
+                    import_database_backup(backup_file)
+                    st.success("Databasis herstel. Die app gaan nou herlaai.")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Kon nie rugsteun herstel nie: {exc}")
+
     grade_choice = tap_choice("Wys graad", ["Alle grade", *GRADE_OPTIONS], key="teacher_dashboard_grade", horizontal=True)
     selected_grade = None if grade_choice == "Alle grade" else int(grade_choice)
     user_where = "WHERE u.grade = ?" if selected_grade is not None else ""
