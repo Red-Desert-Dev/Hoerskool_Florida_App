@@ -561,12 +561,18 @@ st.markdown(
     .stDownloadButton > button,
     button[kind="primary"] {
         background: linear-gradient(135deg, var(--school-yellow), #f7e07a) !important;
-        color: #06351f !important;
+        color: var(--school-red) !important;
         border: 0 !important;
         border-radius: 7px !important;
         font-weight: 800 !important;
         box-shadow: 0 8px 20px rgba(0,0,0,0.22);
         transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    .stButton > button p,
+    .stDownloadButton > button p,
+    button[kind="primary"] p {
+        color: var(--school-red) !important;
     }
 
     .stButton > button:hover,
