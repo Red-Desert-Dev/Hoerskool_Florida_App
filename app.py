@@ -1346,6 +1346,7 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
                 avatar TEXT NOT NULL,
+                school_name TEXT NOT NULL DEFAULT 'Hoërskool Florida',
                 grade INTEGER NOT NULL DEFAULT 6,
                 created_at TEXT NOT NULL
             );
@@ -1454,6 +1455,7 @@ def init_db():
         )
     ensure_default_teacher()
     ensure_user_grade_column()
+    ensure_user_school_name_column()
     ensure_question_columns()
     migrate_json_once()
     seed_question_bank()
@@ -1464,6 +1466,13 @@ def ensure_user_grade_column():
         columns = [row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
         if "grade" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN grade INTEGER NOT NULL DEFAULT 6")
+
+
+def ensure_user_school_name_column():
+    with get_conn() as conn:
+        columns = [row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+        if "school_name" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN school_name TEXT NOT NULL DEFAULT 'Hoërskool Florida'")
 
 
 def ensure_question_columns():
@@ -1818,12 +1827,13 @@ def get_credential(account_type, account_id):
     return row["password_hash"] if row else None
 
 
-def create_student(name, password, avatar, grade):
+def create_student(name, password, avatar, grade, school_name="Hoërskool Florida"):
     user_id = secrets.token_hex(6)
+    clean_school_name = str(school_name or "").strip() or "Hoërskool Florida"
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO users (id, name, avatar, grade, created_at) VALUES (?, ?, ?, ?, ?)",
-            (user_id, name.strip(), avatar, int(grade), now_iso()),
+            "INSERT INTO users (id, name, avatar, school_name, grade, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, name.strip(), avatar, clean_school_name, int(grade), now_iso()),
         )
         conn.execute(
             "INSERT INTO credentials (account_type, account_id, password_hash, created_at) VALUES (?, ?, ?, ?)",
@@ -1846,6 +1856,7 @@ def load_student_context(user_id):
     return {
         "id": user["id"],
         "name": user["name"],
+        "school_name": user["school_name"],
         "avatar": normalize_avatar_key(user["avatar"]),
         "grade": int(user["grade"]),
         "progress": progress,
@@ -2599,6 +2610,7 @@ def login_flow():
         if registration_success:
             st.success(registration_success)
         reg_name = st.text_input("Volle Naam En Van Of Gebruikersnaam", placeholder="Byvoorbeeld: Jan Botha")
+        reg_school_name = st.text_input("Skool Se Naam", value="Hoërskool Florida", placeholder="Byvoorbeeld: Hoërskool Florida")
         reg_pass = st.text_input("Kies 'n wagwoord", type="password", help="Gebruik iets wat jy sal onthou, maar nie jou naam alleen nie.")
         reg_pass_confirm = st.text_input("Tik wagwoord weer", type="password")
         reg_grade = tap_choice(
@@ -2619,6 +2631,8 @@ def login_flow():
         if st.button("Registreer Nou", type="primary", use_container_width=True):
             if not reg_name.strip() or not reg_pass:
                 st.error("Naam en wagwoord is nodig.")
+            elif not reg_school_name.strip():
+                st.error("Skool se naam is nodig.")
             elif reg_pass != reg_pass_confirm:
                 st.error("Die twee wagwoorde stem nie ooreen nie.")
             elif len(reg_pass) < 4:
@@ -2631,11 +2645,12 @@ def login_flow():
                         "password": reg_pass,
                         "avatar": reg_avatar,
                         "grade": int(reg_grade),
+                        "school_name": reg_school_name.strip(),
                         "duplicates": [dict(row) for row in duplicates],
                     }
                     st.rerun()
                 else:
-                    create_student(reg_name, reg_pass, reg_avatar, reg_grade)
+                    create_student(reg_name, reg_pass, reg_avatar, reg_grade, reg_school_name)
                     st.success("Geregistreer. Jy kan nou inteken.")
 
     with tab3:
@@ -2706,12 +2721,13 @@ def duplicate_registration_dialog():
         duplicate_rows = [
             {
                 "Naam": row["name"],
+                "Skool": row["school_name"],
                 "Graad": int(row["grade"]),
                 "Avatar": avatar_display_label(row["avatar"]),
             }
             for row in duplicates
         ]
-        render_html_table(pd.DataFrame(duplicate_rows), ["Naam", "Graad", "Avatar"], {})
+        render_html_table(pd.DataFrame(duplicate_rows), ["Naam", "Skool", "Graad", "Avatar"], {})
     if safe_name != requested_name:
         st.info(f"As jy voortgaan, sal die nuwe gebruikersnaam wees: {safe_name}")
 
@@ -2723,7 +2739,7 @@ def duplicate_registration_dialog():
     with col2:
         if st.button("Gaan Voort", type="primary", use_container_width=True):
             try:
-                create_student(safe_name, pending["password"], pending["avatar"], pending["grade"])
+                create_student(safe_name, pending["password"], pending["avatar"], pending["grade"], pending.get("school_name", "Hoërskool Florida"))
                 st.session_state.registration_success = f"Geregistreer as {safe_name}. Jy kan nou inteken."
                 st.session_state.pop("pending_duplicate_registration", None)
                 st.rerun()
@@ -5101,7 +5117,7 @@ def admin_students_page():
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, grade, avatar, created_at
+            SELECT id, name, school_name, grade, avatar, created_at
             FROM users
             ORDER BY grade, name
             """
@@ -5120,6 +5136,7 @@ def admin_students_page():
             column_config={
                 "id": st.column_config.TextColumn("ID", disabled=True),
                 "name": st.column_config.TextColumn("Naam"),
+                "school_name": st.column_config.TextColumn("Skool"),
                 "grade": st.column_config.SelectboxColumn("Graad", options=GRADE_OPTIONS),
                 "avatar": st.column_config.SelectboxColumn("Avatar", options=list(AVATAR_OPTIONS.keys())),
                 "created_at": st.column_config.TextColumn("Geskep", disabled=True),
@@ -5133,6 +5150,7 @@ def admin_students_page():
                     for _, row in edited_df.iterrows():
                         student_id = str(row["id"])
                         name = str(row["name"]).strip()
+                        school_name = str(row["school_name"]).strip() or "Hoërskool Florida"
                         grade = int(row["grade"])
                         avatar = normalize_avatar_key(row["avatar"])
                         if not name:
@@ -5141,10 +5159,10 @@ def admin_students_page():
                         conn.execute(
                             """
                             UPDATE users
-                            SET name = ?, grade = ?, avatar = ?
+                            SET name = ?, school_name = ?, grade = ?, avatar = ?
                             WHERE id = ?
                             """,
-                            (name, grade, avatar, student_id),
+                            (name, school_name, grade, avatar, student_id),
                         )
                         conn.execute(
                             "UPDATE subject_progress SET grade = ? WHERE user_id = ?",
@@ -5158,12 +5176,12 @@ def admin_students_page():
     st.markdown("---")
     st.subheader("Herstel student wagwoord")
     with get_conn() as conn:
-        student_rows = conn.execute("SELECT id, name, grade FROM users ORDER BY grade, name").fetchall()
+        student_rows = conn.execute("SELECT id, name, school_name, grade FROM users ORDER BY grade, name").fetchall()
     if not student_rows:
         st.info("Geen studente beskikbaar vir wagwoord herstel nie.")
         return
 
-    student_options = {f"Graad {row['grade']} - {row['name']}": row["id"] for row in student_rows}
+    student_options = {f"Graad {row['grade']} - {row['name']} ({row['school_name']})": row["id"] for row in student_rows}
     selected_label = tap_choice("Kies student", list(student_options.keys()), key="password_reset_student")
     new_password = st.text_input("Nuwe wagwoord", type="password", key="password_reset_value")
     if st.button("Stel wagwoord", use_container_width=True):
