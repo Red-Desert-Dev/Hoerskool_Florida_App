@@ -1409,15 +1409,15 @@ def sponsor_card_html(sponsor):
         contact_html = f'<span class="sponsor-contact">{html.escape(contact)}</span>'
     else:
         contact_html = ""
-    return f"""
-    <div class="sponsor-card">
-            <span class="sponsor-eyebrow">Ondersteun Deur</span>
-            {logo_html}
-            <span class="sponsor-name">{html.escape(sponsor["business_name"])}</span>
-            <span class="sponsor-message">{html.escape(sponsor["message"])}</span>
-            {contact_html}
-    </div>
-    """
+    return (
+        '<div class="sponsor-card">'
+        '<span class="sponsor-eyebrow">Ondersteun Deur</span>'
+        f'{logo_html}'
+        f'<span class="sponsor-name">{html.escape(sponsor["business_name"])}</span>'
+        f'<span class="sponsor-message">{html.escape(sponsor["message"])}</span>'
+        f'{contact_html}'
+        '</div>'
+    )
 
 
 def render_login_sponsors():
@@ -1427,12 +1427,7 @@ def render_login_sponsors():
             return
         cards = "".join(sponsor_card_html(sponsor) for sponsor in sponsors)
         st.markdown(
-            f"""
-            <div class="sponsor-section">
-                <h3>Ons Borge</h3>
-                <div class="sponsor-grid">{cards}</div>
-            </div>
-            """,
+            f'<div class="sponsor-section"><h3>Ons Borge</h3><div class="sponsor-grid">{cards}</div></div>',
             unsafe_allow_html=True,
         )
     except Exception:
