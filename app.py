@@ -3255,16 +3255,17 @@ def coding_modules_for_grade(grade):
             "lessons": [
                 ("Vra", "Die program kan die gebruiker 'n vraag vra."),
                 ("Lees", "Invoer kom dikwels as teks in."),
-                ("Omskakel", "As jy wiskunde wil doen, verander teks na 'n getal."),
-                ("Gebruik", "Gebruik die invoer in 'n boodskap of berekening."),
+                ("Onthou", "Bere die antwoord in 'n veranderlike sodat jy dit weer kan gebruik."),
+                ("Gebruik", "Gebruik die invoer in 'n vriendelike boodskap."),
             ],
             "python_code": 'naam = input("Wat is jou naam? ")\nprint("Welkom, " + naam + "!")',
             "java_code": 'import java.util.Scanner;\nScanner invoer = new Scanner(System.in);\nSystem.out.print("Wat is jou naam? ");\nString naam = invoer.nextLine();\nSystem.out.println("Welkom, " + naam + "!");',
-            "challenge": "Waarom moet invoer soms na 'n heelgetal verander word?",
-            "answer": "Invoer word dikwels as teks behandel",
-            "options": ["Rekenaars hou nie van getalle nie", "Invoer word dikwels as teks behandel", "Heelgetalle verwyder alle foute", "Dit maak die skerm helderder"],
-            "explanation": "input() gee gewoonlik teks terug, selfs wanneer die gebruiker 15 tik.",
-            "activity": "Bou 'n program wat bereken hoe oud iemand volgende jaar sal wees.",
+            "challenge": "Wat doen input() in hierdie les?",
+            "answer": "Dit lees wat die gebruiker tik",
+            "options": ["Dit lees wat die gebruiker tik", "Dit vee die program uit", "Dit maak 'n prentjie", "Dit stop altyd die kode"],
+            "explanation": "input() wag vir die gebruiker se antwoord en gee daardie antwoord vir jou program terug.",
+            "activity": "Bou 'n program wat die gebruiker se naam vra en dan 'n vriendelike welkom-boodskap wys.",
+            "playground_input": "Mia",
             "victory": "Nou praat jou program terug. Volgende gebruik ons wiskunde-magie.",
         },
         {
@@ -3274,6 +3275,7 @@ def coding_modules_for_grade(grade):
             "lessons": [
                 ("Plus en minus", "Gebruik + en - vir optelling en aftrekking."),
                 ("Maal en deel", "Gebruik * en / vir vermenigvuldiging en deling."),
+                ("Getal-invoer", "As jy met 'n ingevoerde getal wil werk, verander die teks eers na 'n getal."),
                 ("Oorblyfsel", "% gee wat oorbly nadat jy deel."),
                 ("Sakrekenaar", "Kombineer invoer en operatore om 'n klein sakrekenaar te bou."),
             ],
@@ -3283,7 +3285,8 @@ def coding_modules_for_grade(grade):
             "answer": "2",
             "options": ["2", "3", "5", "15"],
             "explanation": "17 gedeel deur 5 los 2 oor.",
-            "activity": "Bou 'n program wat versnaperinge gelykop tussen vriende verdeel.",
+            "activity": "Bou 'n program wat bereken hoe oud iemand volgende jaar sal wees.",
+            "playground_input": "14",
             "victory": "Knap. Jou kode kan nou somme doen sonder om moeg te word.",
         },
         {
@@ -4016,9 +4019,19 @@ def run_python_playground(code, mock_input="Leerling"):
         return "", error
 
     output = io.StringIO()
+    input_values = str(mock_input).splitlines() or [str(mock_input)]
+    input_index = {"value": 0}
+
+    def read_mock_input(prompt=""):
+        if input_index["value"] < len(input_values):
+            value = input_values[input_index["value"]]
+            input_index["value"] += 1
+            return value
+        return input_values[-1] if input_values else ""
+
     safe_builtins = {
         "print": print,
-        "input": lambda prompt="": mock_input,
+        "input": read_mock_input,
         "int": int,
         "str": str,
         "float": float,
@@ -4161,6 +4174,16 @@ def java_value_to_text(value):
     return str(value)
 
 
+def read_java_mock_input(env):
+    input_values = env.get("__input_values", ["Leerling"])
+    input_index = int(env.get("__input_index", 0))
+    if input_index < len(input_values):
+        value = input_values[input_index]
+        env["__input_index"] = input_index + 1
+        return value
+    return input_values[-1] if input_values else ""
+
+
 def eval_java_atom(expr, env, mock_input):
     expr = expr.strip()
     if expr == "":
@@ -4182,9 +4205,9 @@ def eval_java_atom(expr, env, mock_input):
     if expr in env:
         return env[expr]
     if expr.endswith(".nextLine()"):
-        return mock_input
+        return read_java_mock_input(env)
     if expr.endswith(".nextInt()"):
-        return int(mock_input.strip())
+        return int(read_java_mock_input(env).strip())
     if re.fullmatch(r"-?\d+", expr):
         return int(expr)
     if re.fullmatch(r"-?\d+\.\d+", expr):
@@ -4326,7 +4349,7 @@ def run_java_playground(code, mock_input="Leerling"):
     if any(term in code for term in risky_terms):
         return "", "Hierdie Java-deel is te gevorderd of nie veilig vir die speelgrond nie."
     source = extract_java_main_body(strip_java_comments(code))
-    env = {}
+    env = {"__input_values": str(mock_input).splitlines() or [str(mock_input)], "__input_index": 0}
     output = []
     try:
         run_java_lines(source, env, output, mock_input, {"count": 0, "max": 500})
@@ -4371,11 +4394,12 @@ def render_code_playground(module, index):
         st.session_state[code_key] = ""
     elif st.session_state.get(starter_key) != starter_code:
         st.session_state[starter_key] = starter_code
-    mock_input = st.text_input(
+    mock_input = st.text_area(
         "Toets-invoer vir input() / Scanner",
-        value="Mia",
+        value=module.get("playground_input", "Mia"),
         key=f"coding_playground_input_{index}_{module_slug}",
-        help="As jou kode input() of Scanner gebruik, gee die speelgrond hierdie waarde terug.",
+        height=78,
+        help="As jou kode input() of Scanner gebruik, lees die speelgrond hierdie waarde. Gebruik 'n nuwe reel vir elke volgende input().",
     )
     code = st.text_area(
         f"Skryf jou {language}-kode hier",
