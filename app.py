@@ -4574,7 +4574,7 @@ def front_page():
             for option_index, option_label in enumerate(first_activity_options):
                 with option_cols[option_index % len(option_cols)]:
                     if st.button(option_label, key=f"first_activity_{option_index}_{option_label}", use_container_width=True):
-                        st.session_state.main_navigation = option_label
+                        st.session_state.pending_main_navigation = option_label
                         st.rerun()
         st.markdown("### Jou Vordering Per Onderwerp")
         display_progress_df = progress_df.copy()
@@ -5196,6 +5196,9 @@ def main():
         if student_grade >= 8:
             navigation_options.append("Kodering Akademie")
         navigation_options.extend(["Mini Game - Tetris", *CATEGORIES.keys()])
+        pending_navigation = st.session_state.pop("pending_main_navigation", None)
+        if pending_navigation in navigation_options:
+            st.session_state.main_navigation = pending_navigation
         if st.session_state.get("main_navigation") not in navigation_options:
             st.session_state.main_navigation = navigation_options[0]
         category = tap_choice(
