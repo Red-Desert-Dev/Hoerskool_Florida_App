@@ -1347,6 +1347,9 @@ def init_db():
                 name TEXT NOT NULL UNIQUE,
                 avatar TEXT NOT NULL,
                 school_name TEXT NOT NULL DEFAULT 'Hoërskool Florida',
+                parent_name TEXT NOT NULL DEFAULT '',
+                parent_contact TEXT NOT NULL DEFAULT '',
+                popi_consent INTEGER NOT NULL DEFAULT 0,
                 grade INTEGER NOT NULL DEFAULT 6,
                 created_at TEXT NOT NULL
             );
@@ -1456,6 +1459,7 @@ def init_db():
     ensure_default_teacher()
     ensure_user_grade_column()
     ensure_user_school_name_column()
+    ensure_user_guardian_columns()
     ensure_question_columns()
     migrate_json_once()
     seed_question_bank()
@@ -1473,6 +1477,17 @@ def ensure_user_school_name_column():
         columns = [row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
         if "school_name" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN school_name TEXT NOT NULL DEFAULT 'Hoërskool Florida'")
+
+
+def ensure_user_guardian_columns():
+    with get_conn() as conn:
+        columns = [row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+        if "parent_name" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN parent_name TEXT NOT NULL DEFAULT ''")
+        if "parent_contact" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN parent_contact TEXT NOT NULL DEFAULT ''")
+        if "popi_consent" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN popi_consent INTEGER NOT NULL DEFAULT 0")
 
 
 def ensure_question_columns():
@@ -1827,13 +1842,38 @@ def get_credential(account_type, account_id):
     return row["password_hash"] if row else None
 
 
-def create_student(name, password, avatar, grade, school_name="Hoërskool Florida"):
+def create_student(
+    name,
+    password,
+    avatar,
+    grade,
+    school_name="Hoërskool Florida",
+    parent_name="",
+    parent_contact="",
+    popi_consent=False,
+):
     user_id = secrets.token_hex(6)
     clean_school_name = str(school_name or "").strip() or "Hoërskool Florida"
+    clean_parent_name = str(parent_name or "").strip()
+    clean_parent_contact = str(parent_contact or "").strip()
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO users (id, name, avatar, school_name, grade, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, name.strip(), avatar, clean_school_name, int(grade), now_iso()),
+            """
+            INSERT INTO users
+                (id, name, avatar, school_name, parent_name, parent_contact, popi_consent, grade, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                name.strip(),
+                avatar,
+                clean_school_name,
+                clean_parent_name,
+                clean_parent_contact,
+                int(bool(popi_consent)),
+                int(grade),
+                now_iso(),
+            ),
         )
         conn.execute(
             "INSERT INTO credentials (account_type, account_id, password_hash, created_at) VALUES (?, ?, ?, ?)",
@@ -1857,6 +1897,9 @@ def load_student_context(user_id):
         "id": user["id"],
         "name": user["name"],
         "school_name": user["school_name"],
+        "parent_name": user["parent_name"],
+        "parent_contact": user["parent_contact"],
+        "popi_consent": bool(user["popi_consent"]),
         "avatar": normalize_avatar_key(user["avatar"]),
         "grade": int(user["grade"]),
         "progress": progress,
@@ -2597,6 +2640,10 @@ def login_flow():
                 st.session_state.user = {
                     "id": student["id"],
                     "name": student["name"],
+                    "school_name": student["school_name"],
+                    "parent_name": student["parent_name"],
+                    "parent_contact": student["parent_contact"],
+                    "popi_consent": bool(student["popi_consent"]),
                     "avatar": normalize_avatar_key(student["avatar"]),
                     "grade": int(student["grade"]),
                     "role": "student",
@@ -2621,6 +2668,18 @@ def login_flow():
             horizontal=True,
             help="Kies jou huidige skoolgraad.",
         )
+        needs_guardian_details = 2 <= int(reg_grade) <= 7
+        reg_parent_name = ""
+        reg_parent_contact = ""
+        reg_popi_consent = False
+        if needs_guardian_details:
+            st.markdown("#### Ouer/Voog Besonderhede")
+            reg_parent_name = st.text_input("Ouer/Voog Naam (Opsioneel)", placeholder="Byvoorbeeld: Marietjie Botha")
+            reg_parent_contact = st.text_input("Ouer/Voog Kontaknommer (Opsioneel)", placeholder="Byvoorbeeld: 082 123 4567")
+            st.caption(
+                "Fynskrif: Ek gee toestemming dat hierdie leerder se registrasie- en vorderingsinligting slegs vir interne gebruik deur Hoërskool Florida gebruik mag word."
+            )
+            reg_popi_consent = st.checkbox("Ek gee POPI-toestemming vir interne gebruik deur Hoërskool Florida.", key="register_popi_consent")
         avatar_labels = {data["label"]: key for key, data in AVATAR_OPTIONS.items()}
         reg_avatar_label = tap_choice("Kies Karakter", list(avatar_labels.keys()), key="register_avatar_choice")
         reg_avatar = avatar_labels[reg_avatar_label]
@@ -2633,6 +2692,8 @@ def login_flow():
                 st.error("Naam en wagwoord is nodig.")
             elif not reg_school_name.strip():
                 st.error("Skool se naam is nodig.")
+            elif needs_guardian_details and not reg_popi_consent:
+                st.error("POPI-toestemming is nodig vir leerders in Graad 2 tot 7.")
             elif reg_pass != reg_pass_confirm:
                 st.error("Die twee wagwoorde stem nie ooreen nie.")
             elif len(reg_pass) < 4:
@@ -2646,11 +2707,23 @@ def login_flow():
                         "avatar": reg_avatar,
                         "grade": int(reg_grade),
                         "school_name": reg_school_name.strip(),
+                        "parent_name": reg_parent_name.strip(),
+                        "parent_contact": reg_parent_contact.strip(),
+                        "popi_consent": bool(reg_popi_consent),
                         "duplicates": [dict(row) for row in duplicates],
                     }
                     st.rerun()
                 else:
-                    create_student(reg_name, reg_pass, reg_avatar, reg_grade, reg_school_name)
+                    create_student(
+                        reg_name,
+                        reg_pass,
+                        reg_avatar,
+                        reg_grade,
+                        reg_school_name,
+                        reg_parent_name,
+                        reg_parent_contact,
+                        reg_popi_consent,
+                    )
                     st.success("Geregistreer. Jy kan nou inteken.")
 
     with tab3:
@@ -2722,12 +2795,13 @@ def duplicate_registration_dialog():
             {
                 "Naam": row["name"],
                 "Skool": row["school_name"],
+                "Ouer/Voog": row["parent_name"],
                 "Graad": int(row["grade"]),
                 "Avatar": avatar_display_label(row["avatar"]),
             }
             for row in duplicates
         ]
-        render_html_table(pd.DataFrame(duplicate_rows), ["Naam", "Skool", "Graad", "Avatar"], {})
+        render_html_table(pd.DataFrame(duplicate_rows), ["Naam", "Skool", "Ouer/Voog", "Graad", "Avatar"], {})
     if safe_name != requested_name:
         st.info(f"As jy voortgaan, sal die nuwe gebruikersnaam wees: {safe_name}")
 
@@ -2739,7 +2813,16 @@ def duplicate_registration_dialog():
     with col2:
         if st.button("Gaan Voort", type="primary", use_container_width=True):
             try:
-                create_student(safe_name, pending["password"], pending["avatar"], pending["grade"], pending.get("school_name", "Hoërskool Florida"))
+                create_student(
+                    safe_name,
+                    pending["password"],
+                    pending["avatar"],
+                    pending["grade"],
+                    pending.get("school_name", "Hoërskool Florida"),
+                    pending.get("parent_name", ""),
+                    pending.get("parent_contact", ""),
+                    pending.get("popi_consent", False),
+                )
                 st.session_state.registration_success = f"Geregistreer as {safe_name}. Jy kan nou inteken."
                 st.session_state.pop("pending_duplicate_registration", None)
                 st.rerun()
@@ -5117,7 +5200,7 @@ def admin_students_page():
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, school_name, grade, avatar, created_at
+            SELECT id, name, school_name, parent_name, parent_contact, popi_consent, grade, avatar, created_at
             FROM users
             ORDER BY grade, name
             """
@@ -5128,6 +5211,7 @@ def admin_students_page():
         st.info("Daar is nog geen studente nie.")
     else:
         students_df["avatar"] = students_df["avatar"].apply(normalize_avatar_key)
+        students_df["popi_consent"] = students_df["popi_consent"].astype(bool)
         edited_df = st.data_editor(
             students_df,
             use_container_width=True,
@@ -5137,6 +5221,9 @@ def admin_students_page():
                 "id": st.column_config.TextColumn("ID", disabled=True),
                 "name": st.column_config.TextColumn("Naam"),
                 "school_name": st.column_config.TextColumn("Skool"),
+                "parent_name": st.column_config.TextColumn("Ouer/Voog"),
+                "parent_contact": st.column_config.TextColumn("Ouer Kontaknommer"),
+                "popi_consent": st.column_config.CheckboxColumn("POPI Toestemming"),
                 "grade": st.column_config.SelectboxColumn("Graad", options=GRADE_OPTIONS),
                 "avatar": st.column_config.SelectboxColumn("Avatar", options=list(AVATAR_OPTIONS.keys())),
                 "created_at": st.column_config.TextColumn("Geskep", disabled=True),
@@ -5151,6 +5238,9 @@ def admin_students_page():
                         student_id = str(row["id"])
                         name = str(row["name"]).strip()
                         school_name = str(row["school_name"]).strip() or "Hoërskool Florida"
+                        parent_name = str(row["parent_name"]).strip()
+                        parent_contact = str(row["parent_contact"]).strip()
+                        popi_consent = bool(row["popi_consent"])
                         grade = int(row["grade"])
                         avatar = normalize_avatar_key(row["avatar"])
                         if not name:
@@ -5159,10 +5249,10 @@ def admin_students_page():
                         conn.execute(
                             """
                             UPDATE users
-                            SET name = ?, school_name = ?, grade = ?, avatar = ?
+                            SET name = ?, school_name = ?, parent_name = ?, parent_contact = ?, popi_consent = ?, grade = ?, avatar = ?
                             WHERE id = ?
                             """,
-                            (name, school_name, grade, avatar, student_id),
+                            (name, school_name, parent_name, parent_contact, int(popi_consent), grade, avatar, student_id),
                         )
                         conn.execute(
                             "UPDATE subject_progress SET grade = ? WHERE user_id = ?",
