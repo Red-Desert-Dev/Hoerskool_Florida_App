@@ -1605,6 +1605,7 @@ def init_db():
     ensure_user_guardian_columns()
     ensure_question_columns()
     migrate_json_once()
+    seed_default_sponsor()
     seed_question_bank()
 
 
@@ -1646,6 +1647,30 @@ def ensure_question_columns():
         for row in rows:
             if is_numeric_answer(row["answer"]):
                 conn.execute("UPDATE questions SET input_mode = 'number' WHERE id = ?", (row["id"],))
+
+
+def seed_default_sponsor():
+    with get_conn() as conn:
+        existing = conn.execute("SELECT COUNT(*) FROM sponsor_ads").fetchone()[0]
+        if existing:
+            return
+        conn.execute(
+            """
+            INSERT INTO sponsor_ads
+                (business_name, message, logo_data_uri, contact, active, start_date, end_date, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
+            """,
+            (
+                "Red Desert Innovations",
+                "Spesialis in bestuur, data-analise en digitale transformasie. Ons help organisasies om insigte uit data te ontdek.",
+                None,
+                "https://reddesertconsulting.co.za/",
+                datetime.now().date().isoformat(),
+                (datetime.now().date() + timedelta(days=365)).isoformat(),
+                now_iso(),
+                now_iso(),
+            ),
+        )
 
 
 def ensure_default_teacher():
