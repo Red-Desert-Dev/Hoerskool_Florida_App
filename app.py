@@ -4560,17 +4560,22 @@ def front_page():
                 academy_links.append("Robotika Akademie")
             if student_grade >= 8:
                 academy_links.append("Kodering Akademie")
-            subject_links = "".join(f'<span class="subject-pill">{label}</span>' for label in [*academy_links, *CATEGORIES.keys()])
+            first_activity_options = [*academy_links, *CATEGORIES.keys()]
             st.markdown(
-                f"""
+                """
                 <div class="empty-state">
                     <h3>Jou Eerste Oefening Wag</h3>
                     <p>Begin Met Enige Een Van Hierdie Afdelings In Die Linkerkantse Kieslys:</p>
-                    <p>{subject_links}</p>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+            option_cols = st.columns(min(3, max(1, len(first_activity_options))))
+            for option_index, option_label in enumerate(first_activity_options):
+                with option_cols[option_index % len(option_cols)]:
+                    if st.button(option_label, key=f"first_activity_{option_index}_{option_label}", use_container_width=True):
+                        st.session_state.main_navigation = option_label
+                        st.rerun()
         st.markdown("### Jou Vordering Per Onderwerp")
         display_progress_df = progress_df.copy()
         if "topic" in display_progress_df.columns:
