@@ -83,20 +83,6 @@ def school_brand_html(compact=False):
     )
 
 
-def learner_intro_html():
-    return f"""
-    <div class="helper-panel">
-        <h3>Welkom by jou oefenruimte</h3>
-        <p>{APP_TAGLINE}</p>
-        <div class="feature-grid">
-            <div class="feature-card"><strong>1. Registreer</strong><span>Kies jou graad en avatar.</span></div>
-            <div class="feature-card"><strong>2. Oefen</strong><span>Werk deur vrae volgens jou vlak.</span></div>
-            <div class="feature-card"><strong>3. Groei</strong><span>Verdien punte, sien ranglyste en verbeter.</span></div>
-        </div>
-    </div>
-    """
-
-
 def reading_pane_html(text):
     safe_text = html.escape(str(text or "")).replace("\n", "<br>")
     return f'<div class="reading-pane">{safe_text}</div>'
@@ -321,9 +307,24 @@ st.markdown(
             rgba(8, 49, 29, 0.88);
         border: 1px solid rgba(242, 207, 74, 0.34);
         border-radius: 8px;
-        margin-top: 16px;
-        padding: 12px;
+        margin-top: 12px;
+        padding: 16px;
         text-align: left;
+    }
+
+    .sponsor-section {
+        margin-top: 28px;
+    }
+
+    .sponsor-section h3 {
+        color: var(--school-yellow);
+        margin-bottom: 10px;
+    }
+
+    .sponsor-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
 
     .sponsor-eyebrow {
@@ -342,7 +343,7 @@ st.markdown(
         display: block;
         height: auto;
         margin: 4px 0 9px 0;
-        max-height: 70px;
+        max-height: 82px;
         max-width: 100%;
         object-fit: contain;
         padding: 5px;
@@ -1368,7 +1369,7 @@ def image_upload_to_data_uri(uploaded_file):
     return f"data:{file_type};base64,{encoded}"
 
 
-def active_sponsor_ad():
+def active_sponsor_ads(limit=3):
     today = datetime.now().date().isoformat()
     with get_conn() as conn:
         return conn.execute(
@@ -1379,37 +1380,49 @@ def active_sponsor_ad():
               AND (start_date IS NULL OR start_date = '' OR start_date <= ?)
               AND (end_date IS NULL OR end_date = '' OR end_date >= ?)
             ORDER BY updated_at DESC, id DESC
-            LIMIT 1
+            LIMIT ?
             """,
-            (today, today),
-        ).fetchone()
+            (today, today, int(limit)),
+        ).fetchall()
 
 
-def render_sidebar_sponsor():
-    sponsor = active_sponsor_ad()
-    if not sponsor:
-        return
-    logo_html = ""
-    if sponsor["logo_data_uri"]:
-        logo_html = f'<img class="sponsor-logo" src="{sponsor["logo_data_uri"]}" alt="{html.escape(sponsor["business_name"])} logo" />'
-    contact_html = ""
-    if sponsor["contact"]:
-        contact = str(sponsor["contact"]).strip()
-        if contact.startswith(("http://", "https://")):
-            contact_html = f'<a class="sponsor-contact" href="{html.escape(contact)}" target="_blank" rel="noopener noreferrer">{html.escape(contact)}</a>'
-        elif "." in contact and " " not in contact:
-            contact_url = f"https://{contact}"
-            contact_html = f'<a class="sponsor-contact" href="{html.escape(contact_url)}" target="_blank" rel="noopener noreferrer">{html.escape(contact)}</a>'
-        else:
-            contact_html = f'<span class="sponsor-contact">{html.escape(contact)}</span>'
-    st.markdown(
-        f"""
-        <div class="sponsor-card">
+def sponsor_card_html(sponsor):
+    logo_html = (
+        f'<img class="sponsor-logo" src="{sponsor["logo_data_uri"]}" alt="{html.escape(sponsor["business_name"])} logo" />'
+        if sponsor["logo_data_uri"]
+        else ""
+    )
+    contact = str(sponsor["contact"] or "").strip()
+    if contact.startswith(("http://", "https://")):
+        contact_html = f'<a class="sponsor-contact" href="{html.escape(contact)}" target="_blank" rel="noopener noreferrer">{html.escape(contact)}</a>'
+    elif "." in contact and " " not in contact:
+        contact_url = f"https://{contact}"
+        contact_html = f'<a class="sponsor-contact" href="{html.escape(contact_url)}" target="_blank" rel="noopener noreferrer">{html.escape(contact)}</a>'
+    elif contact:
+        contact_html = f'<span class="sponsor-contact">{html.escape(contact)}</span>'
+    else:
+        contact_html = ""
+    return f"""
+    <div class="sponsor-card">
             <span class="sponsor-eyebrow">Ondersteun Deur</span>
             {logo_html}
             <span class="sponsor-name">{html.escape(sponsor["business_name"])}</span>
             <span class="sponsor-message">{html.escape(sponsor["message"])}</span>
             {contact_html}
+    </div>
+    """
+
+
+def render_login_sponsors():
+    sponsors = active_sponsor_ads(limit=3)
+    if not sponsors:
+        return
+    cards = "".join(sponsor_card_html(sponsor) for sponsor in sponsors)
+    st.markdown(
+        f"""
+        <div class="sponsor-section">
+            <h3>Ons Borge</h3>
+            <div class="sponsor-grid">{cards}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2747,7 +2760,6 @@ def login_flow():
         f'<div class="hoof-kaart">{school_brand_html()}</div>',
         unsafe_allow_html=True,
     )
-    st.markdown(learner_intro_html(), unsafe_allow_html=True)
     tab1, tab2, tab3 = st.tabs(["Leerder Teken In", "Nuwe Leerder", "Onderwyser"])
 
     with tab1:
@@ -2863,6 +2875,8 @@ def login_flow():
 
     if st.session_state.get("pending_duplicate_registration"):
         duplicate_registration_dialog()
+
+    render_login_sponsors()
 
 
 def render_html_table(df, columns, column_labels):
@@ -5559,7 +5573,6 @@ def main():
             st.markdown("---")
             if st.button("Log Uit"):
                 logout()
-            render_sidebar_sponsor()
         if admin_page == "Admin":
             admin_questions_page()
         elif admin_page == "Studente":
@@ -5596,7 +5609,6 @@ def main():
         st.markdown("---")
         if st.button("Log Uit"):
             logout()
-        render_sidebar_sponsor()
 
     if category == "Voorblad (Stats & Leaderboard)":
         front_page()
