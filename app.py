@@ -2790,9 +2790,14 @@ def login_flow():
         f'<div class="hoof-kaart">{school_brand_html()}</div>',
         unsafe_allow_html=True,
     )
-    tab1, tab2, tab3 = st.tabs(["Leerder Teken In", "Nuwe Leerder", "Onderwyser"])
+    access_mode = tap_choice(
+        "Kies Toegang",
+        ["Leerder Teken In", "Nuwe Leerder", "Onderwyser"],
+        key="login_access_mode",
+        horizontal=True,
+    )
 
-    with tab1:
+    if access_mode == "Leerder Teken In":
         st.caption("Gebruik die naam en wagwoord waarmee jy geregistreer het.")
         login_user = st.text_input("Gebruikersnaam", placeholder="Byvoorbeeld: Mia van Wyk")
         login_pass = st.text_input("Wagwoord", type="password", placeholder="Jou wagwoord")
@@ -2813,7 +2818,7 @@ def login_flow():
                 st.rerun()
             st.error("Verkeerde besonderhede.")
 
-    with tab2:
+    elif access_mode == "Nuwe Leerder":
         st.caption("Nuwe leerders kan self begin. Onderwysers kan later name, grade en wagwoorde regmaak.")
         registration_success = st.session_state.pop("registration_success", None)
         if registration_success:
@@ -2888,7 +2893,7 @@ def login_flow():
                     )
                     st.success("Geregistreer. Jy kan nou inteken.")
 
-    with tab3:
+    else:
         st.caption("Onderwyser toegang is vir vraagbank, ranglyste en studentbestuur.")
         teacher_name = st.text_input("Onderwyser naam", value=DEFAULT_TEACHER_NAME)
         teacher_pass = st.text_input("Onderwyser wagwoord", type="password")
