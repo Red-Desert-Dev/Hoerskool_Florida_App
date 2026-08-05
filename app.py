@@ -1375,19 +1375,22 @@ def image_upload_to_data_uri(uploaded_file):
 
 def active_sponsor_ads(limit=3):
     today = datetime.now().date().isoformat()
-    with get_conn() as conn:
-        return conn.execute(
-            """
-            SELECT *
-            FROM sponsor_ads
-            WHERE active = 1
-              AND (start_date IS NULL OR start_date = '' OR start_date <= ?)
-              AND (end_date IS NULL OR end_date = '' OR end_date >= ?)
-            ORDER BY updated_at DESC, id DESC
-            LIMIT ?
-            """,
-            (today, today, int(limit)),
-        ).fetchall()
+    try:
+        with get_conn() as conn:
+            return conn.execute(
+                """
+                SELECT *
+                FROM sponsor_ads
+                WHERE active = 1
+                  AND (start_date IS NULL OR start_date = '' OR start_date <= ?)
+                  AND (end_date IS NULL OR end_date = '' OR end_date >= ?)
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ?
+                """,
+                (today, today, int(limit)),
+            ).fetchall()
+    except sqlite3.Error:
+        return []
 
 
 def sponsor_card_html(sponsor):
@@ -1418,19 +1421,22 @@ def sponsor_card_html(sponsor):
 
 
 def render_login_sponsors():
-    sponsors = active_sponsor_ads(limit=3)
-    if not sponsors:
+    try:
+        sponsors = active_sponsor_ads(limit=3)
+        if not sponsors:
+            return
+        cards = "".join(sponsor_card_html(sponsor) for sponsor in sponsors)
+        st.markdown(
+            f"""
+            <div class="sponsor-section">
+                <h3>Ons Borge</h3>
+                <div class="sponsor-grid">{cards}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    except Exception:
         return
-    cards = "".join(sponsor_card_html(sponsor) for sponsor in sponsors)
-    st.markdown(
-        f"""
-        <div class="sponsor-section">
-            <h3>Ons Borge</h3>
-            <div class="sponsor-grid">{cards}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def get_conn():
