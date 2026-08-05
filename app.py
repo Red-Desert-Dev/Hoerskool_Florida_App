@@ -573,6 +573,7 @@ st.markdown(
     .stDownloadButton > button p,
     button[kind="primary"] p {
         color: var(--school-red) !important;
+        font-weight: 800 !important;
     }
 
     .stButton > button:hover,
