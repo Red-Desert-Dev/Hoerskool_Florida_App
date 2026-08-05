@@ -2790,11 +2790,10 @@ def login_flow():
         f'<div class="hoof-kaart">{school_brand_html()}</div>',
         unsafe_allow_html=True,
     )
-    access_mode = tap_choice(
+    access_mode = st.selectbox(
         "Kies Toegang",
         ["Leerder Teken In", "Nuwe Leerder", "Onderwyser"],
         key="login_access_mode",
-        horizontal=True,
     )
 
     if access_mode == "Leerder Teken In":
