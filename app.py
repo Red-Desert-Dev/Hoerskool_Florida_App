@@ -3291,6 +3291,21 @@ def tetris_page():
 
     st.caption("Bonus: nuwe persoonlike beste +10, graad rekord +25, skool rekord +50. Daaglikse bonus is beperk tot 100 punte.")
     render_tetris_component()
+
+    with st.form("manual_tetris_score_form"):
+        st.markdown("### Stoor Tetris Telling")
+        st.caption("As die speletjie se Stoor Telling-knoppie nie op jou toestel werk nie, tik die Tetris Score hier in en stoor dit.")
+        manual_score = st.number_input("Tetris Score", min_value=0, step=1, value=0, format="%d")
+        manual_submitted = st.form_submit_button("Stoor Tetris Telling", type="primary", use_container_width=True)
+    if manual_submitted:
+        result = record_tetris_score(user_id, grade, int(manual_score))
+        if result["saved"]:
+            st.success(f"Tetris telling gestoor: {int(manual_score)}. {result['message']}.")
+            time.sleep(1)
+            st.rerun()
+        else:
+            st.info(result["message"])
+
     render_leaderboard(f"Graad {grade} Tetris ranglys", tetris_leaderboard(grade=grade))
 
 
@@ -5149,7 +5164,7 @@ def admin_dashboard():
                    COALESCE(a.academic_score, 0) AS academic_score,
                    COALESCE(g.tetris_best_score, 0) AS tetris_best_score,
                    COALESCE(g.game_bonus, 0) AS game_bonus,
-                   COALESCE(a.academic_score, 0) + COALESCE(g.game_bonus, 0) AS total_score,
+                   COALESCE(a.academic_score, 0) + COALESCE(g.tetris_best_score, 0) + COALESCE(g.game_bonus, 0) AS total_score,
                    COALESCE(a.best_level, 1) AS best_level,
                    COALESCE(a.correct_count, 0) AS correct_count,
                    COALESCE(a.attempt_count, 0) AS attempt_count
