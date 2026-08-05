@@ -324,7 +324,7 @@ st.markdown(
     .sponsor-grid {
         display: grid;
         gap: 12px;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .sponsor-eyebrow {
@@ -369,6 +369,10 @@ st.markdown(
 
     @media (max-width: 760px) {
         .feature-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .sponsor-grid {
             grid-template-columns: 1fr;
         }
 
