@@ -5556,10 +5556,10 @@ def main():
         with st.sidebar:
             st.markdown(school_brand_html(compact=True), unsafe_allow_html=True)
             admin_page = tap_choice("Bladsy", ["Dashboard", "Admin", "Studente", "Borge"], key="admin_page", horizontal=False)
-            render_sidebar_sponsor()
             st.markdown("---")
             if st.button("Log Uit"):
                 logout()
+            render_sidebar_sponsor()
         if admin_page == "Admin":
             admin_questions_page()
         elif admin_page == "Studente":
@@ -5593,10 +5593,10 @@ def main():
             navigation_options,
             key="main_navigation",
         )
-        render_sidebar_sponsor()
         st.markdown("---")
         if st.button("Log Uit"):
             logout()
+        render_sidebar_sponsor()
 
     if category == "Voorblad (Stats & Leaderboard)":
         front_page()
