@@ -315,6 +315,57 @@ st.markdown(
         font-size: 0.88rem;
     }
 
+    .sponsor-card {
+        background:
+            linear-gradient(135deg, rgba(242,207,74,0.13), rgba(199,37,46,0.10)),
+            rgba(8, 49, 29, 0.88);
+        border: 1px solid rgba(242, 207, 74, 0.34);
+        border-radius: 8px;
+        margin-top: 16px;
+        padding: 12px;
+        text-align: left;
+    }
+
+    .sponsor-eyebrow {
+        color: var(--school-yellow);
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0;
+        margin-bottom: 7px;
+        text-transform: uppercase;
+    }
+
+    .sponsor-logo {
+        background: rgba(255,255,255,0.92);
+        border-radius: 7px;
+        display: block;
+        height: auto;
+        margin: 4px 0 9px 0;
+        max-height: 70px;
+        max-width: 100%;
+        object-fit: contain;
+        padding: 5px;
+    }
+
+    .sponsor-name {
+        color: var(--school-text);
+        display: block;
+        font-size: 0.98rem;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .sponsor-message,
+    .sponsor-contact {
+        color: var(--school-muted);
+        display: block;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        margin-top: 5px;
+        overflow-wrap: anywhere;
+    }
+
     @media (max-width: 760px) {
         .feature-grid {
             grid-template-columns: 1fr;
@@ -1309,6 +1360,62 @@ def avatar_display_label(avatar_key):
     return AVATAR_OPTIONS[normalize_avatar_key(avatar_key)]["label"]
 
 
+def image_upload_to_data_uri(uploaded_file):
+    if uploaded_file is None:
+        return None
+    file_type = uploaded_file.type or "image/png"
+    encoded = base64.b64encode(uploaded_file.getvalue()).decode("ascii")
+    return f"data:{file_type};base64,{encoded}"
+
+
+def active_sponsor_ad():
+    today = datetime.now().date().isoformat()
+    with get_conn() as conn:
+        return conn.execute(
+            """
+            SELECT *
+            FROM sponsor_ads
+            WHERE active = 1
+              AND (start_date IS NULL OR start_date = '' OR start_date <= ?)
+              AND (end_date IS NULL OR end_date = '' OR end_date >= ?)
+            ORDER BY updated_at DESC, id DESC
+            LIMIT 1
+            """,
+            (today, today),
+        ).fetchone()
+
+
+def render_sidebar_sponsor():
+    sponsor = active_sponsor_ad()
+    if not sponsor:
+        return
+    logo_html = ""
+    if sponsor["logo_data_uri"]:
+        logo_html = f'<img class="sponsor-logo" src="{sponsor["logo_data_uri"]}" alt="{html.escape(sponsor["business_name"])} logo" />'
+    contact_html = ""
+    if sponsor["contact"]:
+        contact = str(sponsor["contact"]).strip()
+        if contact.startswith(("http://", "https://")):
+            contact_html = f'<a class="sponsor-contact" href="{html.escape(contact)}" target="_blank" rel="noopener noreferrer">{html.escape(contact)}</a>'
+        elif "." in contact and " " not in contact:
+            contact_url = f"https://{contact}"
+            contact_html = f'<a class="sponsor-contact" href="{html.escape(contact_url)}" target="_blank" rel="noopener noreferrer">{html.escape(contact)}</a>'
+        else:
+            contact_html = f'<span class="sponsor-contact">{html.escape(contact)}</span>'
+    st.markdown(
+        f"""
+        <div class="sponsor-card">
+            <span class="sponsor-eyebrow">Ondersteun Deur</span>
+            {logo_html}
+            <span class="sponsor-name">{html.escape(sponsor["business_name"])}</span>
+            <span class="sponsor-message">{html.escape(sponsor["message"])}</span>
+            {contact_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def get_conn():
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
@@ -1453,6 +1560,19 @@ def init_db():
                 period_end TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS sponsor_ads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                business_name TEXT NOT NULL,
+                message TEXT NOT NULL,
+                logo_data_uri TEXT,
+                contact TEXT NOT NULL DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 1,
+                start_date TEXT,
+                end_date TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             );
             """
         )
@@ -5293,6 +5413,131 @@ def admin_students_page():
             st.success("Wagwoord is herstel.")
 
 
+def admin_sponsors_page():
+    st.title("Borge")
+    st.subheader("Laai En Bestuur Borgblokke")
+    st.caption("Hierdie borge wys as 'n klein, netjiese blok in die sidebar. Slegs aktiewe borge binne hul begin- en einddatum word gewys.")
+
+    with st.form("new_sponsor_form", clear_on_submit=True):
+        st.markdown("### Nuwe Borg")
+        business_name = st.text_input("Besigheid Naam", placeholder="Byvoorbeeld: ABC Boekwinkel")
+        message = st.text_area(
+            "Kort Boodskap",
+            placeholder="Trots om plaaslike leer te ondersteun.",
+            height=90,
+        )
+        contact = st.text_input("Webwerf Of Kontaknommer", placeholder="Byvoorbeeld: 082 123 4567 of www.besigheid.co.za")
+        logo_file = st.file_uploader("Logo", type=["png", "jpg", "jpeg", "webp"])
+        col1, col2, col3 = st.columns(3)
+        start_date = col1.date_input("Begin Datum", value=datetime.now().date())
+        end_date = col2.date_input("Einddatum", value=datetime.now().date() + timedelta(days=30))
+        active = col3.checkbox("Aktief", value=True)
+        submitted = st.form_submit_button("Stoor Borg", type="primary", use_container_width=True)
+
+    if submitted:
+        if not business_name.strip() or not message.strip():
+            st.error("Besigheid naam en kort boodskap is nodig.")
+        elif end_date < start_date:
+            st.error("Einddatum kan nie voor die begin datum wees nie.")
+        else:
+            logo_data_uri = image_upload_to_data_uri(logo_file)
+            with get_conn() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO sponsor_ads
+                        (business_name, message, logo_data_uri, contact, active, start_date, end_date, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        business_name.strip(),
+                        message.strip(),
+                        logo_data_uri,
+                        contact.strip(),
+                        int(active),
+                        start_date.isoformat(),
+                        end_date.isoformat(),
+                        now_iso(),
+                        now_iso(),
+                    ),
+                )
+            st.success("Borgblok gestoor.")
+            st.rerun()
+
+    st.markdown("---")
+    st.subheader("Bestaande Borge")
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, business_name, message, contact, active, start_date, end_date, created_at, updated_at,
+                   CASE WHEN logo_data_uri IS NULL OR logo_data_uri = '' THEN 'Nee' ELSE 'Ja' END AS has_logo
+            FROM sponsor_ads
+            ORDER BY active DESC, updated_at DESC, id DESC
+            """
+        ).fetchall()
+
+    sponsors_df = rows_to_dataframe(rows)
+    if sponsors_df.empty:
+        st.info("Nog geen borge gelaai nie.")
+        return
+
+    sponsors_df["active"] = sponsors_df["active"].astype(bool)
+    sponsors_df["delete"] = False
+    edited_df = st.data_editor(
+        sponsors_df,
+        use_container_width=True,
+        hide_index=True,
+        num_rows="fixed",
+        column_config={
+            "id": st.column_config.NumberColumn("ID", disabled=True),
+            "business_name": st.column_config.TextColumn("Besigheid Naam"),
+            "message": st.column_config.TextColumn("Kort Boodskap", width="large"),
+            "contact": st.column_config.TextColumn("Webwerf Of Kontaknommer"),
+            "active": st.column_config.CheckboxColumn("Aktief"),
+            "start_date": st.column_config.DateColumn("Begin Datum"),
+            "end_date": st.column_config.DateColumn("Einddatum"),
+            "has_logo": st.column_config.TextColumn("Logo", disabled=True),
+            "created_at": st.column_config.TextColumn("Geskep", disabled=True),
+            "updated_at": st.column_config.TextColumn("Opgedateer", disabled=True),
+            "delete": st.column_config.CheckboxColumn("Verwyder"),
+        },
+        key="sponsor_editor",
+    )
+
+    if st.button("Stoor Borg Veranderinge", type="primary", use_container_width=True):
+        with get_conn() as conn:
+            for _, row in edited_df.iterrows():
+                sponsor_id = int(row["id"])
+                if bool(row.get("delete", False)):
+                    conn.execute("DELETE FROM sponsor_ads WHERE id = ?", (sponsor_id,))
+                    continue
+                business = str(row["business_name"] or "").strip()
+                sponsor_message = str(row["message"] or "").strip()
+                if not business or not sponsor_message:
+                    continue
+                start_value = str(row["start_date"] or "").strip()
+                end_value = str(row["end_date"] or "").strip()
+                conn.execute(
+                    """
+                    UPDATE sponsor_ads
+                    SET business_name = ?, message = ?, contact = ?, active = ?,
+                        start_date = ?, end_date = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        business,
+                        sponsor_message,
+                        str(row["contact"] or "").strip(),
+                        int(bool(row["active"])),
+                        start_value,
+                        end_value,
+                        now_iso(),
+                        sponsor_id,
+                    ),
+                )
+        st.success("Borg veranderinge gestoor.")
+        st.rerun()
+
+
 def logout():
     st.session_state.clear()
     st.rerun()
@@ -5310,7 +5555,8 @@ def main():
     if st.session_state.user.get("role") == "admin":
         with st.sidebar:
             st.markdown(school_brand_html(compact=True), unsafe_allow_html=True)
-            admin_page = tap_choice("Bladsy", ["Dashboard", "Admin", "Studente"], key="admin_page", horizontal=False)
+            admin_page = tap_choice("Bladsy", ["Dashboard", "Admin", "Studente", "Borge"], key="admin_page", horizontal=False)
+            render_sidebar_sponsor()
             st.markdown("---")
             if st.button("Log Uit"):
                 logout()
@@ -5318,6 +5564,8 @@ def main():
             admin_questions_page()
         elif admin_page == "Studente":
             admin_students_page()
+        elif admin_page == "Borge":
+            admin_sponsors_page()
         else:
             admin_dashboard()
         return
@@ -5345,6 +5593,7 @@ def main():
             navigation_options,
             key="main_navigation",
         )
+        render_sidebar_sponsor()
         st.markdown("---")
         if st.button("Log Uit"):
             logout()
