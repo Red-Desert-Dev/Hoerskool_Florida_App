@@ -1989,7 +1989,7 @@ def find_possible_student_duplicates(name, grade=None):
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT id, name, grade, avatar
+            SELECT id, name, school_name, parent_name, parent_contact, popi_consent, grade, avatar
             FROM users
             ORDER BY grade, name
             """
@@ -3037,13 +3037,21 @@ def duplicate_registration_dialog():
     st.write("Kyk asseblief of hierdie leerder dalk reeds geregistreer is voordat jy voortgaan.")
     duplicates = pending.get("duplicates", [])
     if duplicates:
+        def duplicate_value(row, key, default=""):
+            if isinstance(row, dict):
+                return row.get(key, default)
+            try:
+                return row[key]
+            except (KeyError, IndexError):
+                return default
+
         duplicate_rows = [
             {
-                "Naam": row["name"],
-                "Skool": row["school_name"],
-                "Ouer/Voog": row["parent_name"],
-                "Graad": int(row["grade"]),
-                "Avatar": avatar_display_label(row["avatar"]),
+                "Naam": duplicate_value(row, "name", ""),
+                "Skool": duplicate_value(row, "school_name", "Hoërskool Florida"),
+                "Ouer/Voog": duplicate_value(row, "parent_name", ""),
+                "Graad": int(duplicate_value(row, "grade", 0) or 0),
+                "Avatar": avatar_display_label(duplicate_value(row, "avatar", "astronaut")),
             }
             for row in duplicates
         ]
