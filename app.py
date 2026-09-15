@@ -5371,10 +5371,229 @@ def save_admin_questions(edited_df, subject, topic, grade, level):
             )
 
 
+QUESTION_UPLOAD_COLUMNS = [
+    "category",
+    "grade",
+    "level",
+    "prompt",
+    "answer",
+    "accepted",
+    "passage",
+    "hint",
+    "input_mode",
+    "points",
+    "time_limit",
+    "active",
+]
+
+
+def question_upload_template_bytes():
+    sample_rows = [
+        {
+            "category": "Wiskunde - Algebra",
+            "grade": 6,
+            "level": 1,
+            "prompt": "12 + 8 = ?",
+            "answer": "20",
+            "accepted": "20",
+            "passage": "",
+            "hint": "Tel 12 en 8 bymekaar.",
+            "input_mode": "number",
+            "points": 10,
+            "time_limit": 20,
+            "active": True,
+        },
+        {
+            "category": "Afrikaans - Begripstoets",
+            "grade": 4,
+            "level": 1,
+            "prompt": "Wie plant boontjies?",
+            "answer": "Mia",
+            "accepted": "Mia, mia",
+            "passage": "Mia plant boontjies in 'n klein tuin.",
+            "hint": "Kyk na die eerste naam in die leesstuk.",
+            "input_mode": "text",
+            "points": 10,
+            "time_limit": 0,
+            "active": True,
+        },
+    ]
+    instructions = [
+        {"Veld": "category", "Beskrywing": "Gebruik een van die kategorieë op die Kategorieë sheet."},
+        {"Veld": "grade", "Beskrywing": "Graad 2 tot 12."},
+        {"Veld": "level", "Beskrywing": "Vlak 1 tot 10."},
+        {"Veld": "prompt", "Beskrywing": "Die vraag wat aan die leerder gewys word."},
+        {"Veld": "answer", "Beskrywing": "Die hoof korrekte antwoord."},
+        {"Veld": "accepted", "Beskrywing": "Opsioneel. Alternatiewe antwoorde met kommas geskei."},
+        {"Veld": "passage", "Beskrywing": "Opsioneel. Gebruik vir begripstoets leesstukke."},
+        {"Veld": "hint", "Beskrywing": "Opsioneel. As leeg, maak die app self 'n eenvoudige wenk."},
+        {"Veld": "input_mode", "Beskrywing": "text of number. Los leeg vir outomaties."},
+        {"Veld": "points", "Beskrywing": "Punte vir die vraag. Standaard 10."},
+        {"Veld": "time_limit", "Beskrywing": "Sekondes. Graad 2 tot 5 gebruik tans geen timer in die app nie."},
+        {"Veld": "active", "Beskrywing": "TRUE/FALSE. FALSE versteek die vraag."},
+    ]
+    category_rows = [{"category": label, "subject": subject, "topic": topic} for label, (subject, topic) in ADMIN_CATEGORIES.items()]
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        pd.DataFrame(sample_rows, columns=QUESTION_UPLOAD_COLUMNS).to_excel(writer, sheet_name="Vrae", index=False)
+        pd.DataFrame(instructions).to_excel(writer, sheet_name="Instruksies", index=False)
+        pd.DataFrame(category_rows).to_excel(writer, sheet_name="Kategoriee", index=False)
+    return output.getvalue()
+
+
+def parse_upload_bool(value, default=True):
+    if pd.isna(value):
+        return default
+    text = str(value).strip().lower()
+    if text in {"true", "waar", "ja", "yes", "1", "aktief"}:
+        return True
+    if text in {"false", "vals", "nee", "no", "0", "onaktief"}:
+        return False
+    return default
+
+
+def clean_upload_cell(value, default=""):
+    if pd.isna(value):
+        return default
+    return str(value).strip()
+
+
+def import_questions_from_dataframe(upload_df):
+    normalized_columns = {str(column).strip().lower(): column for column in upload_df.columns}
+    missing = [column for column in ["category", "grade", "level", "prompt", "answer"] if column not in normalized_columns]
+    if missing:
+        return {"imported": 0, "errors": [f"Ontbrekende kolomme: {', '.join(missing)}"], "preview": pd.DataFrame()}
+
+    category_map = {label.lower(): value for label, value in ADMIN_CATEGORIES.items()}
+    imported = 0
+    errors = []
+    preview_rows = []
+
+    with get_conn() as conn:
+        for row_number, row in upload_df.iterrows():
+            excel_row = int(row_number) + 2
+            category_text = clean_upload_cell(row.get(normalized_columns["category"]))
+            prompt = clean_upload_cell(row.get(normalized_columns["prompt"]))
+            answer = clean_upload_cell(row.get(normalized_columns["answer"]))
+            if not category_text and not prompt and not answer:
+                continue
+            if category_text.lower() not in category_map:
+                errors.append(f"Ry {excel_row}: Onbekende category '{category_text}'.")
+                continue
+            try:
+                grade = int(float(row.get(normalized_columns["grade"])))
+                level = int(float(row.get(normalized_columns["level"])))
+            except (TypeError, ValueError):
+                errors.append(f"Ry {excel_row}: grade en level moet getalle wees.")
+                continue
+            if grade not in GRADE_OPTIONS:
+                errors.append(f"Ry {excel_row}: grade moet tussen 2 en 12 wees.")
+                continue
+            if not 1 <= level <= 10:
+                errors.append(f"Ry {excel_row}: level moet tussen 1 en 10 wees.")
+                continue
+            if not prompt or not answer:
+                errors.append(f"Ry {excel_row}: prompt en answer is nodig.")
+                continue
+
+            subject, topic = category_map[category_text.lower()]
+            accepted_text = clean_upload_cell(row.get(normalized_columns.get("accepted"), ""))
+            accepted = [item.strip() for item in accepted_text.split(",") if item.strip()] or [answer]
+            passage = clean_upload_cell(row.get(normalized_columns.get("passage"), "")) or None
+            hint = clean_upload_cell(row.get(normalized_columns.get("hint"), "")) or default_hint_for(
+                {"subject": subject, "topic": topic, "prompt": prompt, "answer": answer}
+            )
+            input_mode = clean_upload_cell(row.get(normalized_columns.get("input_mode"), "")).lower()
+            if input_mode not in {"text", "number"}:
+                input_mode = default_input_mode_for({"answer": answer})
+            try:
+                points = int(float(row.get(normalized_columns.get("points"), 10) or 10))
+            except (TypeError, ValueError):
+                points = 10
+            try:
+                time_limit = int(float(row.get(normalized_columns.get("time_limit"), 20) or 20))
+            except (TypeError, ValueError):
+                time_limit = 20
+            active = parse_upload_bool(row.get(normalized_columns.get("active"), True), default=True)
+            question_id = generate_question_id(subject, topic, grade, level)
+
+            conn.execute(
+                """
+                INSERT INTO questions
+                    (id, subject, topic, grade, level, prompt, answer, accepted, passage, hint, input_mode,
+                     points, time_limit, active, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    question_id,
+                    subject,
+                    topic,
+                    grade,
+                    level,
+                    prompt,
+                    answer,
+                    json.dumps(accepted),
+                    passage,
+                    hint,
+                    input_mode,
+                    max(0, points),
+                    max(0, time_limit),
+                    int(active),
+                    now_iso(),
+                ),
+            )
+            imported += 1
+            preview_rows.append({"Ry": excel_row, "Kategorie": category_text, "Graad": grade, "Vlak": level, "Vraag": prompt})
+    return {"imported": imported, "errors": errors, "preview": pd.DataFrame(preview_rows)}
+
+
+def render_question_bulk_upload():
+    with st.expander("Bulk Upload Vrae Met Excel", expanded=False):
+        st.write("Laai die template af, vul die vrae op die `Vrae` sheet in, en upload dit weer hier.")
+        st.download_button(
+            "Laai Excel Template Af",
+            data=question_upload_template_bytes(),
+            file_name="hoerskool_florida_vrae_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+        upload_file = st.file_uploader("Upload Voltooide Excel Template", type=["xlsx"], key="question_bulk_upload_file")
+        if upload_file is not None:
+            try:
+                upload_df = pd.read_excel(upload_file, sheet_name="Vrae")
+            except Exception as exc:
+                st.error(f"Kon nie die Excel-lêer lees nie: {exc}")
+                return
+            st.caption(f"{len(upload_df)} rye in die Excel-lêer gevind.")
+            if not upload_df.empty:
+                st.dataframe(upload_df.head(20), use_container_width=True, hide_index=True)
+            confirm_import = st.checkbox("Ek het die vrae nagegaan en wil dit invoer.", key="confirm_question_bulk_import")
+            if st.button("Voer Vrae In", type="primary", use_container_width=True):
+                if not confirm_import:
+                    st.error("Merk asseblief die bevestiging voordat jy invoer.")
+                    return
+                result = import_questions_from_dataframe(upload_df)
+                if result["errors"]:
+                    st.warning(f"{len(result['errors'])} ry(e) kon nie ingevoer word nie.")
+                    for error in result["errors"][:12]:
+                        st.write(error)
+                    if len(result["errors"]) > 12:
+                        st.caption("Net die eerste 12 foute word gewys.")
+                if result["imported"]:
+                    st.success(f"{result['imported']} vrae suksesvol ingevoer.")
+                    if not result["preview"].empty:
+                        st.dataframe(result["preview"], use_container_width=True, hide_index=True)
+                    time.sleep(1)
+                    st.rerun()
+                elif not result["errors"]:
+                    st.info("Geen vrae is ingevoer nie. Kyk dat die template ingevul is.")
+
+
 def admin_questions_page():
     st.title("Admin")
     st.subheader("Vraagbank")
     st.caption("Kies 'n kategorie en vlak, wysig die vrae in die tabel, en klik Stoor. Nuwe rye kan onderaan bygevoeg word.")
+    render_question_bulk_upload()
 
     grade = tap_choice("Graad", GRADE_OPTIONS, index=GRADE_OPTIONS.index(6), key="admin_question_grade", horizontal=True)
     category = tap_choice("Kategorie", list(ADMIN_CATEGORIES.keys()), key="admin_question_category")
