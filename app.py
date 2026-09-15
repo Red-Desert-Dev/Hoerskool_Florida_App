@@ -437,6 +437,24 @@ st.markdown(
         line-height: 1.2;
     }
 
+    .question-image-card {
+        background: rgba(255, 248, 223, 0.96);
+        border: 2px solid rgba(242, 207, 74, 0.7);
+        border-radius: 8px;
+        box-shadow: 0 14px 38px var(--school-shadow);
+        margin: 16px 0 14px 0;
+        padding: 14px;
+        text-align: center;
+    }
+
+    .question-image-card img {
+        display: block;
+        max-height: 420px;
+        max-width: 100%;
+        object-fit: contain;
+        margin: 0 auto;
+    }
+
     .reading-pane {
         background: #176b65;
         border-radius: 8px;
@@ -1557,6 +1575,7 @@ def init_db():
                 answer TEXT NOT NULL,
                 accepted TEXT NOT NULL DEFAULT '[]',
                 passage TEXT,
+                image_data_uri TEXT,
                 hint TEXT,
                 input_mode TEXT NOT NULL DEFAULT 'text',
                 points INTEGER NOT NULL DEFAULT 10,
@@ -1632,6 +1651,8 @@ def ensure_user_guardian_columns():
 def ensure_question_columns():
     with get_conn() as conn:
         columns = [row["name"] for row in conn.execute("PRAGMA table_info(questions)").fetchall()]
+        if "image_data_uri" not in columns:
+            conn.execute("ALTER TABLE questions ADD COLUMN image_data_uri TEXT")
         if "hint" not in columns:
             conn.execute("ALTER TABLE questions ADD COLUMN hint TEXT")
         if "input_mode" not in columns:
@@ -1744,9 +1765,9 @@ def seed_question_bank():
             conn.execute(
                 """
                 INSERT OR IGNORE INTO questions
-                    (id, subject, topic, grade, level, prompt, answer, accepted, passage, hint, input_mode,
+                    (id, subject, topic, grade, level, prompt, answer, accepted, passage, image_data_uri, hint, input_mode,
                      points, time_limit, active, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
                 """,
                 (
                     question["id"],
@@ -1758,6 +1779,7 @@ def seed_question_bank():
                     question["answer"],
                     serialize_accepted(question),
                     question.get("passage"),
+                    question.get("image_data_uri"),
                     question.get("hint") or default_hint_for(question),
                     question.get("input_mode") or default_input_mode_for(question),
                     int(question.get("points", 10)),
@@ -1810,8 +1832,8 @@ def seed_missing_grade_starter_banks():
                         """
                         INSERT OR IGNORE INTO questions
                             (id, subject, topic, grade, level, prompt, answer, accepted, passage, hint,
-                             input_mode, points, time_limit, active, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             image_data_uri, input_mode, points, time_limit, active, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             new_id,
@@ -1824,6 +1846,7 @@ def seed_missing_grade_starter_banks():
                             source["accepted"],
                             source["passage"],
                             source["hint"],
+                            source["image_data_uri"] if "image_data_uri" in source.keys() else None,
                             source["input_mode"],
                             source["points"],
                             source["time_limit"],
@@ -1853,6 +1876,8 @@ def question_row_to_dict(row):
     }
     if row["passage"]:
         question["passage"] = row["passage"]
+    if "image_data_uri" in row.keys() and row["image_data_uri"]:
+        question["image_data_uri"] = row["image_data_uri"]
     return question
 
 
@@ -2687,6 +2712,7 @@ BACKUP_TABLES = [
     "subject_progress",
     "attempts",
     "game_scores",
+    "questions",
     "sponsor_ads",
 ]
 
@@ -4991,6 +5017,29 @@ def timeout_choice_dialog(user_id, subject, topic, active):
             st.rerun()
 
 
+def question_image_src(value):
+    image_value = str(value or "").strip()
+    if not image_value:
+        return ""
+    if image_value.startswith("data:image/") or image_value.startswith("http://") or image_value.startswith("https://"):
+        return image_value
+    return ""
+
+
+def render_question_image(question):
+    image_src = question_image_src(question.get("image_data_uri"))
+    if not image_src:
+        return
+    st.markdown(
+        f"""
+        <div class="question-image-card">
+            <img src="{html.escape(image_src, quote=True)}" alt="Prent vir vraag" />
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def module_practice(subject, topic):
     user_id = st.session_state.user["id"]
     student_grade = int(st.session_state.user.get("grade", 6))
@@ -5064,6 +5113,8 @@ def module_practice(subject, topic):
             """,
             unsafe_allow_html=True,
         )
+
+    render_question_image(question)
 
     question_box_class = "question-box question-box-foundation" if int(student_grade) <= 4 else "question-box"
     st.markdown(
@@ -5267,7 +5318,7 @@ def load_questions_for_admin(subject, topic, grade, level):
     with get_conn() as conn:
         rows = conn.execute(
             """
-            SELECT id, subject, topic, grade, level, prompt, answer, accepted, passage, hint, input_mode,
+            SELECT id, subject, topic, grade, level, prompt, answer, accepted, passage, image_data_uri, hint, input_mode,
                    points, time_limit, active
             FROM questions
             WHERE subject = ? AND topic = ? AND grade = ? AND level = ?
@@ -5288,7 +5339,7 @@ def load_questions_for_admin(subject, topic, grade, level):
 
 
 def save_admin_questions(edited_df, subject, topic, grade, level):
-    required_columns = ["id", "prompt", "answer", "accepted", "passage", "hint", "input_mode", "grade", "points", "time_limit", "active", "delete"]
+    required_columns = ["id", "prompt", "answer", "accepted", "passage", "image_data_uri", "hint", "input_mode", "grade", "points", "time_limit", "active", "delete"]
     for column in required_columns:
         if column not in edited_df.columns:
             edited_df[column] = ""
@@ -5318,6 +5369,7 @@ def save_admin_questions(edited_df, subject, topic, grade, level):
             accepted_text = str(clean(row.get("accepted"), "") or "").strip()
             accepted = [item.strip() for item in accepted_text.split(",") if item.strip()] or [answer]
             passage = str(clean(row.get("passage"), "") or "").strip() or None
+            image_data_uri = str(clean(row.get("image_data_uri"), "") or "").strip() or None
             hint = str(clean(row.get("hint"), "") or "").strip() or default_hint_for(
                 {"subject": subject, "topic": topic, "prompt": prompt, "answer": answer}
             )
@@ -5332,9 +5384,9 @@ def save_admin_questions(edited_df, subject, topic, grade, level):
             conn.execute(
                 """
                 INSERT INTO questions
-                    (id, subject, topic, grade, level, prompt, answer, accepted, passage, hint, input_mode,
+                    (id, subject, topic, grade, level, prompt, answer, accepted, passage, image_data_uri, hint, input_mode,
                      points, time_limit, active, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     subject = excluded.subject,
                     topic = excluded.topic,
@@ -5344,6 +5396,7 @@ def save_admin_questions(edited_df, subject, topic, grade, level):
                     answer = excluded.answer,
                     accepted = excluded.accepted,
                     passage = excluded.passage,
+                    image_data_uri = excluded.image_data_uri,
                     hint = excluded.hint,
                     input_mode = excluded.input_mode,
                     points = excluded.points,
@@ -5361,6 +5414,7 @@ def save_admin_questions(edited_df, subject, topic, grade, level):
                     answer,
                     json.dumps(accepted),
                     passage,
+                    image_data_uri,
                     hint,
                     input_mode,
                     points,
@@ -5371,6 +5425,70 @@ def save_admin_questions(edited_df, subject, topic, grade, level):
             )
 
 
+def render_admin_question_image_upload(questions_df):
+    if questions_df.empty:
+        return
+    with st.expander("Prent By Vraag Laai", expanded=False):
+        st.write("Kies 'n bestaande vraag en laai 'n diagram of prent op. Dit werk veral goed vir Meetkunde.")
+        options = []
+        labels = {}
+        for _, row in questions_df.iterrows():
+            question_id = str(row.get("id", "") or "").strip()
+            prompt = str(row.get("prompt", "") or "").strip()
+            if not question_id:
+                continue
+            label = f"{prompt[:80]}{'...' if len(prompt) > 80 else ''} ({question_id})"
+            options.append(question_id)
+            labels[question_id] = label
+        if not options:
+            st.info("Stoor eers die vraag voordat jy 'n prent kan heg.")
+            return
+
+        selected_question_id = st.selectbox(
+            "Kies vraag",
+            options,
+            format_func=lambda value: labels.get(value, value),
+            key="admin_question_image_select",
+        )
+        selected_row = questions_df[questions_df["id"] == selected_question_id].iloc[0]
+        current_image = question_image_src(selected_row.get("image_data_uri"))
+        if current_image:
+            st.markdown("Huidige prent:")
+            st.markdown(
+                f'<div class="question-image-card"><img src="{html.escape(current_image, quote=True)}" alt="Huidige vraagprent" /></div>',
+                unsafe_allow_html=True,
+            )
+
+        image_file = st.file_uploader(
+            "Laai prent op",
+            type=["png", "jpg", "jpeg", "webp"],
+            key=f"admin_question_image_file_{selected_question_id}",
+        )
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Heg prent aan vraag", type="primary", use_container_width=True):
+                if image_file is None:
+                    st.error("Kies eers 'n prent om op te laai.")
+                    return
+                image_data_uri = image_upload_to_data_uri(image_file)
+                with get_conn() as conn:
+                    conn.execute(
+                        "UPDATE questions SET image_data_uri = ?, updated_at = ? WHERE id = ?",
+                        (image_data_uri, now_iso(), selected_question_id),
+                    )
+                st.success("Prent is aan die vraag geheg.")
+                st.rerun()
+        with col2:
+            if st.button("Verwyder vraagprent", use_container_width=True):
+                with get_conn() as conn:
+                    conn.execute(
+                        "UPDATE questions SET image_data_uri = NULL, updated_at = ? WHERE id = ?",
+                        (now_iso(), selected_question_id),
+                    )
+                st.success("Prent is verwyder.")
+                st.rerun()
+
+
 QUESTION_UPLOAD_COLUMNS = [
     "category",
     "grade",
@@ -5379,6 +5497,7 @@ QUESTION_UPLOAD_COLUMNS = [
     "answer",
     "accepted",
     "passage",
+    "image",
     "hint",
     "input_mode",
     "points",
@@ -5397,6 +5516,7 @@ def question_upload_template_bytes():
             "answer": "20",
             "accepted": "20",
             "passage": "",
+            "image": "",
             "hint": "Tel 12 en 8 bymekaar.",
             "input_mode": "number",
             "points": 10,
@@ -5411,6 +5531,7 @@ def question_upload_template_bytes():
             "answer": "Mia",
             "accepted": "Mia, mia",
             "passage": "Mia plant boontjies in 'n klein tuin.",
+            "image": "",
             "hint": "Kyk na die eerste naam in die leesstuk.",
             "input_mode": "text",
             "points": 10,
@@ -5426,6 +5547,7 @@ def question_upload_template_bytes():
         {"Veld": "answer", "Beskrywing": "Die hoof korrekte antwoord."},
         {"Veld": "accepted", "Beskrywing": "Opsioneel. Alternatiewe antwoorde met kommas geskei."},
         {"Veld": "passage", "Beskrywing": "Opsioneel. Gebruik vir begripstoets leesstukke."},
+        {"Veld": "image", "Beskrywing": "Opsioneel. Gebruik 'n https-prent URL vir Meetkunde-diagramme, of laai die prent apart in die Vraagbank op."},
         {"Veld": "hint", "Beskrywing": "Opsioneel. As leeg, maak die app self 'n eenvoudige wenk."},
         {"Veld": "input_mode", "Beskrywing": "text of number. Los leeg vir outomaties."},
         {"Veld": "points", "Beskrywing": "Punte vir die vraag. Standaard 10."},
@@ -5500,6 +5622,11 @@ def import_questions_from_dataframe(upload_df):
             accepted_text = clean_upload_cell(row.get(normalized_columns.get("accepted"), ""))
             accepted = [item.strip() for item in accepted_text.split(",") if item.strip()] or [answer]
             passage = clean_upload_cell(row.get(normalized_columns.get("passage"), "")) or None
+            image_column = normalized_columns.get("image") or normalized_columns.get("image_url") or normalized_columns.get("image_data_uri")
+            image_data_uri = clean_upload_cell(row.get(image_column, "")) if image_column else ""
+            if image_data_uri and not question_image_src(image_data_uri):
+                errors.append(f"Ry {excel_row}: image moet 'n https URL of data:image waarde wees.")
+                continue
             hint = clean_upload_cell(row.get(normalized_columns.get("hint"), "")) or default_hint_for(
                 {"subject": subject, "topic": topic, "prompt": prompt, "answer": answer}
             )
@@ -5520,9 +5647,9 @@ def import_questions_from_dataframe(upload_df):
             conn.execute(
                 """
                 INSERT INTO questions
-                    (id, subject, topic, grade, level, prompt, answer, accepted, passage, hint, input_mode,
+                    (id, subject, topic, grade, level, prompt, answer, accepted, passage, image_data_uri, hint, input_mode,
                      points, time_limit, active, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     question_id,
@@ -5534,6 +5661,7 @@ def import_questions_from_dataframe(upload_df):
                     answer,
                     json.dumps(accepted),
                     passage,
+                    image_data_uri or None,
                     hint,
                     input_mode,
                     max(0, points),
@@ -5622,6 +5750,7 @@ def admin_questions_page():
                 "answer",
                 "accepted",
                 "passage",
+                "image_data_uri",
                 "hint",
                 "input_mode",
                 "points",
@@ -5646,6 +5775,11 @@ def admin_questions_page():
             "answer": st.column_config.TextColumn("Korrekte antwoord"),
             "accepted": st.column_config.TextColumn("Aanvaar ook", help="Gebruik kommas vir alternatiewe antwoorde."),
             "passage": st.column_config.TextColumn("Leesstuk", width="large"),
+            "image_data_uri": st.column_config.TextColumn(
+                "Prent URL / Data",
+                help="Opsioneel. Gebruik vir Meetkunde-diagramme, of laai 'n prent op in die blok onder die tabel.",
+                width="medium",
+            ),
             "hint": st.column_config.TextColumn("Wenk", width="large"),
             "input_mode": st.column_config.SelectboxColumn(
                 "Input tipe",
@@ -5659,6 +5793,8 @@ def admin_questions_page():
         },
         key=f"question_editor_{subject}_{topic}_{level}",
     )
+
+    render_admin_question_image_upload(edited_df)
 
     col1, col2 = st.columns([1, 3])
     with col1:
