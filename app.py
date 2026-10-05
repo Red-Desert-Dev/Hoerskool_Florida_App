@@ -5588,13 +5588,42 @@ def clean_upload_cell(value, default=""):
     return str(value).strip()
 
 
+def resolve_upload_category(category_text, passage="", topic_text=""):
+    category_key = str(category_text or "").strip().lower()
+    category_map = {label.lower(): value for label, value in ADMIN_CATEGORIES.items()}
+    if category_key in category_map:
+        return category_map[category_key]
+
+    subject_aliases = {
+        "afrikaans": "Afrikaans",
+        "engels": "Engels",
+        "english": "Engels",
+        "wiskunde": "Wiskunde",
+        "maths": "Wiskunde",
+        "mathematics": "Wiskunde",
+    }
+    subject = subject_aliases.get(category_key)
+    if not subject:
+        return None
+
+    topic_key = str(topic_text or "").strip().lower()
+    if subject in {"Afrikaans", "Engels"}:
+        comprehension_topics = {"lees", "begripstoets", "comprehension", "reading"}
+        topic = "Lees" if passage or topic_key in comprehension_topics else "Taal"
+        return subject, topic
+    if subject == "Wiskunde":
+        geometry_topics = {"meetkunde", "geometry"}
+        topic = "Meetkunde" if topic_key in geometry_topics else "Algebra"
+        return subject, topic
+    return None
+
+
 def import_questions_from_dataframe(upload_df):
     normalized_columns = {str(column).strip().lower(): column for column in upload_df.columns}
     missing = [column for column in ["category", "grade", "level", "prompt", "answer"] if column not in normalized_columns]
     if missing:
         return {"imported": 0, "errors": [f"Ontbrekende kolomme: {', '.join(missing)}"], "preview": pd.DataFrame()}
 
-    category_map = {label.lower(): value for label, value in ADMIN_CATEGORIES.items()}
     imported = 0
     errors = []
     preview_rows = []
@@ -5605,10 +5634,18 @@ def import_questions_from_dataframe(upload_df):
             category_text = clean_upload_cell(row.get(normalized_columns["category"]))
             prompt = clean_upload_cell(row.get(normalized_columns["prompt"]))
             answer = clean_upload_cell(row.get(normalized_columns["answer"]))
+            passage = clean_upload_cell(row.get(normalized_columns.get("passage"), ""))
+            topic_text = clean_upload_cell(
+                row.get(normalized_columns.get("topic") or normalized_columns.get("onderwerp"), "")
+            )
             if not category_text and not prompt and not answer:
                 continue
-            if category_text.lower() not in category_map:
-                errors.append(f"Ry {excel_row}: Onbekende category '{category_text}'.")
+            resolved_category = resolve_upload_category(category_text, passage, topic_text)
+            if resolved_category is None:
+                errors.append(
+                    f"Ry {excel_row}: Onbekende kategorie '{category_text}'. "
+                    "Gebruik byvoorbeeld 'Engels', 'Engels - Taal' of 'Engels - Begripstoets'."
+                )
                 continue
             try:
                 grade = int(float(row.get(normalized_columns["grade"])))
@@ -5626,10 +5663,10 @@ def import_questions_from_dataframe(upload_df):
                 errors.append(f"Ry {excel_row}: prompt en answer is nodig.")
                 continue
 
-            subject, topic = category_map[category_text.lower()]
+            subject, topic = resolved_category
             accepted_text = clean_upload_cell(row.get(normalized_columns.get("accepted"), ""))
             accepted = [item.strip() for item in accepted_text.split(",") if item.strip()] or [answer]
-            passage = clean_upload_cell(row.get(normalized_columns.get("passage"), "")) or None
+            passage = passage or None
             image_column = normalized_columns.get("image") or normalized_columns.get("image_url") or normalized_columns.get("image_data_uri")
             image_data_uri = clean_upload_cell(row.get(image_column, "")) if image_column else ""
             if image_data_uri and not question_image_src(image_data_uri):
